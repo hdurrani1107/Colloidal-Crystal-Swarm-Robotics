@@ -11,8 +11,7 @@ Goals of this repository:
 5. Record Results
 6. Lofty Goal: Apply policies and algorithms into the real-world
 
-WORK IN PROGRESS
-
+# WORK IN PROGRESS
 
 Will keep this continually updated
 
