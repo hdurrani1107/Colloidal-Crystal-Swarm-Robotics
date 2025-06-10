@@ -3,6 +3,9 @@
 # Craig Reynolds Paper and Algorithm. There are a ton like it.
 # However, this one is 3-D which makes it alittle cooler to see. 
 # Enjoy!
+#
+# Author: Humzah Durrani
+#
 #######################################################################
 
 ##########################
@@ -105,7 +108,7 @@ def update_sim(positions, velocities, middle_strength, alert_dist, flying_dist, 
 #Function: Animate the simulation
 def animate(frame):
     global positions, velocities
-    positions, velocities = update_sim(positions, velocities, middle_strength, alert_dist, flying_dist, flying_str, margin, turn_factor)
+    positions, velocities = update_sim(positions,    elocities, middle_strength, alert_dist, flying_dist, flying_str, margin, turn_factor)
     pos_history.append(positions.copy())
     if len(pos_history) > trail_length:
         pos_history.pop(0)
