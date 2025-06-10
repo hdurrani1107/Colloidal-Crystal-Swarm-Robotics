@@ -20,34 +20,36 @@ from matplotlib import pyplot as plt
 boid_count = 100
 
 #Random Starting Positon range (X,Y,Z)
-x_position = np.array([100,900])
-y_position = np.array([200,1100])
-#z_position = np.array([200,900])
+lower_pos = np.array([100,900,200])
+upper_pos = np.array([200,1100,800])
+
 
 #Velocity Range (X,Y,Z)
-x_vel = np.array([0,-20])
-y_vel = np.array([10,20])
-#z_vel = np.array([-10,10])
+lower_vel = np.array([0,-2,-1])
+upper_vel = np.array([1,2,1])
 
 #Force Applied to want to move to the center:
 middle_strength = 0.01
 
 #Separation: Alert Distance
-alert_dist = 100
+alert_dist = 10
 
 #Match Speed 
-flying_dist = 1000
-flying_str = 0.125
+flying_dist = 10
+flying_str = 0.0125
 
 ##########################
 # Simulation
 ##########################
-sim_limits = np.array([2000,2000])
+sim_limits = np.array([2000,2000,2000])
 
-#Function: Random starting positions for boid
+#Function: Flock Set-up used for both position and velocity
 def flock(boid_count, lower_lim, upper_lim):
     width = upper_lim - lower_lim
-    return lower_lim[:, np.newaxis] + np.random.rand(2,boid_count) * width[:, np.newaxis]
+    return lower_lim[:, np.newaxis] + np.random.rand(3,boid_count) * width[:, np.newaxis]
+
+#Function: Bounding Walls
+
 
 #Function: Update Boids Position
 def update_sim(positions, velocities, middle_strength, alert_dist, flying_dist, flying_str):
@@ -79,28 +81,37 @@ def update_sim(positions, velocities, middle_strength, alert_dist, flying_dist, 
     #Position Update
     positions += velocities
 
+    #Keeps the agents in bound
+    positions = np.mod(positions, sim_limits[:, np.newaxis])
+
+    return positions, velocities
+
 
 #Function: Animate the simulation
 def animate(frame):
-    update_sim(positions, velocities, middle_strength, alert_dist, flying_dist, flying_str)
-    scatter.set_offsets(positions.transpose())
+    global positions, velocities
+    positions, velocities = update_sim(positions, velocities, middle_strength, alert_dist, flying_dist, flying_str)
+    scatter._offsets3d = (positions[0], positions[1], positions [2])
 
 ##########################
 # Run Code
 ##########################
 
 #Position Setup
-positions = flock(boid_count,x_position,y_position)
+positions = flock(boid_count,lower_pos,upper_pos)
 
 #Velocity Setup
-velocities = flock(boid_count,x_vel,y_vel)
+velocities = flock(boid_count,lower_vel,upper_vel)
 
 
 #Display Figure
 figure = plt.figure()
-axes = plt.axes(xlim=(0,sim_limits[0]), ylim=(0,sim_limits[1]))
-scatter = axes.scatter(positions[0,:], positions[1,:], marker="v", edgecolor="k", lw=0.5)
+axes = figure.add_subplot(111, projection='3d')
+scatter = axes.scatter(positions[0,:], positions[1,:], positions[2,:], marker="P", edgecolor="k", lw=0.5)
 scatter
+axes.set_xlim(0, sim_limits[0])
+axes.set_ylim(0, sim_limits[1])
+axes.set_zlim(0, sim_limits[2])
 
-anime = animation.FuncAnimation(figure, animate, frames=50, interval=50)
+anime = animation.FuncAnimation(figure, animate, frames=50, interval=50, blit=False)
 plt.show()
