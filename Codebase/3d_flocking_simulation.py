@@ -41,6 +41,10 @@ alert_dist = 300
 flying_dist = 600
 flying_str = 0.1
 
+#Visualtion parameters:
+trail_length = 20
+pos_history = []
+
 ##########################
 # Simulation
 ##########################
@@ -102,7 +106,21 @@ def update_sim(positions, velocities, middle_strength, alert_dist, flying_dist, 
 def animate(frame):
     global positions, velocities
     positions, velocities = update_sim(positions, velocities, middle_strength, alert_dist, flying_dist, flying_str, margin, turn_factor)
+    pos_history.append(positions.copy())
+    if len(pos_history) > trail_length:
+        pos_history.pop(0)
     scatter._offsets3d = (positions[0], positions[1], positions [2])
+
+    #Trail lines:
+    for line in trail_lines:
+        line.remove()
+    trail_lines.clear()
+
+    for i in range(boid_count):
+        trail = np.array([p[:,i] for p in pos_history])
+        line, = axes.plot(trail[:,0], trail[:,1], trail[:,2], alpha=0.3, linewidth=1)
+        trail_lines.append(line)
+
 
 ##########################
 # Run Code
@@ -118,6 +136,7 @@ velocities = flock(boid_count,lower_vel,upper_vel)
 #Display Figure
 figure = plt.figure()
 axes = figure.add_subplot(111, projection='3d')
+trail_lines = []
 scatter = axes.scatter(positions[0,:], positions[1,:], positions[2,:], marker="P", edgecolor="k", lw=0.5)
 scatter
 axes.set_xlim(0, sim_limits[0])
@@ -127,3 +146,4 @@ axes.set_title("3-D Flocking Simulation")
 
 anime = animation.FuncAnimation(figure, animate, frames=50, interval=50, blit=False)
 plt.show()
+
