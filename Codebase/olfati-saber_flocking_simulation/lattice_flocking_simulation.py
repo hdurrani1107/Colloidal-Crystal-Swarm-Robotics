@@ -5,6 +5,8 @@
 #
 # Author: Humzah Durrani
 # STATUS: In-Progress
+# To do:
+# Make 3-D, add leader-follower, maybe adversarial?
 # Sources/References:
 #  1. R. Olfati-Saber. Flocking for multi-agent dynamic systems: 
 #     algorithms and theory. IEEE Transactions on Automatic Control, 
