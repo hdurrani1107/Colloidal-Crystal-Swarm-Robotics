@@ -11,7 +11,7 @@
 #     51(3):401–420, 2006.
 #  2. https://github.com/arbit3rr/Flocking-Multi-Agent/tree/main
 #  3. https://github.com/tjards/flocking_network?tab=readme-ov-file
-#
+#  4. ChatGPT
 # 
 #######################################################################
 
@@ -25,6 +25,13 @@ import matplotlib.pyplot as plt
 ##########################
 # Parameters
 ##########################
+
+#Number of Agents
+agents = 30
+
+#Max Steps (Animation run-time)
+max_steps = 1000
+
 #Smoothing factor for sigma_norm
 eps = 0.1
 
@@ -37,6 +44,19 @@ C = np.abs(A - B) / np.sqrt(4 * A * B)
 
 #Bump Function Threshold
 H = 0.2
+
+#Range and Distance
+R = 12
+D = 10
+
+
+#Control Gain Parameters from the paper
+#Inter-agent interactions
+c1_alpha = 3
+c2_alpha = 2 * np.sqrt(c1_alpha)
+# Global Control
+c1_gamma = 5
+c2_gamma = 0.2 * np.sqrt(c1_gamma)
 
 ##########################
 # Core Math Functions
@@ -77,11 +97,14 @@ def phi_alpha(z):
 # Multi-Agent Class
 ##########################
 class multi_agent:
+    
+    #Initialize agents position and velocity
     def __init__(self, number, sampletime=0.1):
         self.dt = sampletime
         self.agents = np.randomint(0, 100, (number,2)).astype('float')
         self.agents = hstack([self.agents, np.zeros((number,2))])
 
+    #Update agents position and velocity
     def update(self,u=2):
         q_dot = u
         self.agents[:,2:] += q_dot * self.dt
@@ -92,3 +115,56 @@ class multi_agent:
 # Helper Functions
 ##########################
 
+#Function that indicates whether two agents are within interaction range
+def get_adj_mat(nodes, r):
+    return np.array([np.linalg.norm(noes[i, :2], axis=-1) <+ r for i in range(len(nodes))])
+
+#Function for influence coeffs based on distance (velocity matching)
+def influence(q_i, q_js):
+    r_alpha = sigma_norm([R])
+    return bump_function(sigma_norm(q_js - q_i) / r_alpha)
+
+#Function to calculate direction vectors (agents to neighbors)
+def local_dir(q_i, q_js):
+    return sigma_grad(q_js - q_i)
+
+##########################
+# Main Loop
+##########################
+
+#Initialize Agents
+multi_agent_sys = multi_agent(number = agents)
+
+for i in range(max_steps):
+    #Compute Adjacency
+    adj_mat = get_adj_mat(multi_agent_sys.agents, R)
+    u = np.zeros((agents, 2))
+
+    #Loop through agents
+    for j in range(agents):
+        #Get positions and velocity
+        agent_p = multi_agent_sys.agents[j, :2]
+        agent_q = multi_agent_sys.agents[j, 2:]
+
+        #Init control input
+        u_alpha = np.zeros(2)
+
+        #Identify and process neighbors
+        neighbor_idx = adj_mat[j]
+        if np.sum(neighbor_idx) > 1:
+            neighbor_p = multi_agent_sys.agents[neighbor_idx, :2]
+            neighbor_q = multi_agent_sys.agents[neighbor_idx, 2:]
+
+        #Interaction with neighbors
+
+        #Velocity alignment with neighbors
+
+        #Total Influence
+
+        #Feedback from gamme agent
+
+        #Total control input
+
+    #Update agent states
+
+    #Plot Agents and their connections
