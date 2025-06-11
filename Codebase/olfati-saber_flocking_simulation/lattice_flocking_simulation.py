@@ -68,6 +68,7 @@ def bump_funct(z):
     Ph[z <= 1] = (1+ np.cos(np.pi * (z[z <= 1] - H) / (1 - H))) / 2
     Ph[z < H] = 1
     Ph[z < 0] = 0
+    return Ph
 
 #Smooths version of identity function that avoids singularities at 0
 def sigma_1(z):
@@ -80,7 +81,7 @@ def sigma_norm(z):
 #Gradient of sigma norm, to compute normalized direction vectors 
 #for force field
 def sigma_grad(z):
-    return z / np.sqrt(1 + eps * np.linalg.norm(z axis =-1, keepdims=True) ** 2)
+    return z / np.sqrt(1 + eps * np.linalg.norm(z, axis =-1, keepdims=True) ** 2)
 
 #Base Potential Function
 def phi(z):
@@ -90,7 +91,7 @@ def phi(z):
 def phi_alpha(z):
     r_alpha = sigma_norm([R])
     d_alpha = sigma_norm([D])
-    return bump_function(z / r_alpha) * phi(z - d alpha)
+    return bump_funct(z / r_alpha) * phi(z - d_alpha)
 
 
 ##########################
@@ -101,8 +102,8 @@ class multi_agent:
     #Initialize agents position and velocity
     def __init__(self, number, sampletime=0.1):
         self.dt = sampletime
-        self.agents = np.randomint(0, 100, (number,2)).astype('float')
-        self.agents = hstack([self.agents, np.zeros((number,2))])
+        self.agents = np.random.randint(0, 100, (number,2)).astype('float')
+        self.agents = np.hstack([self.agents, np.zeros((number,2))])
 
     #Update agents position and velocity
     def update(self,u=2):
@@ -117,12 +118,19 @@ class multi_agent:
 
 #Function that indicates whether two agents are within interaction range
 def get_adj_mat(nodes, r):
-    return np.array([np.linalg.norm(noes[i, :2], axis=-1) <+ r for i in range(len(nodes))])
+    n = len(nodes)
+    adj = np.zeros((n,n), dtype=bool)
+    for i in range(n):
+        for j in range(n):
+            if i != j:
+                dist = np.linalg.norm(nodes[i,:2] - nodes[j, :2])
+                adj[i,j] = dist <= r
+    return adj
 
 #Function for influence coeffs based on distance (velocity matching)
 def influence(q_i, q_js):
     r_alpha = sigma_norm([R])
-    return bump_function(sigma_norm(q_js - q_i) / r_alpha)
+    return bump_funct(sigma_norm(q_js - q_i) / r_alpha)
 
 #Function to calculate direction vectors (agents to neighbors)
 def local_dir(q_i, q_js):
@@ -154,17 +162,39 @@ for i in range(max_steps):
         if np.sum(neighbor_idx) > 1:
             neighbor_p = multi_agent_sys.agents[neighbor_idx, :2]
             neighbor_q = multi_agent_sys.agents[neighbor_idx, 2:]
+            direction = local_dir(agent_p, neighbor_p)
 
-        #Interaction with neighbors
+            #Interaction with neighbors
+            u1 = c2_alpha * np.sum(phi_alpha(sigma_norm(neighbor_p - agent_p)) * direction, axis=0)
 
-        #Velocity alignment with neighbors
+            #Velocity alignment with neighbors
+            n_influence = influence(agent_p, neighbor_p)
+            u2 = c2_alpha * np.sum(n_influence * (neighbor_q - agent_q), axis=0)
+        
+            #Total Influence
+            u_alpha = u1 + u2 
 
-        #Total Influence
-
-        #Feedback from gamme agent
+        #Feedback from gamma agent
+        u_gamma = -c1_gamma * sigma_1(agent_p - [50,50]) - c2_gamma * agent_q
 
         #Total control input
+        u[j] = u_alpha + u_gamma
 
     #Update agent states
+    multi_agent_sys.update(u)
 
     #Plot Agents and their connections
+    plt.cla()
+    plt.axis([0,100,0,100])
+
+    for k in range(agents):
+        for l in range(agents):
+            if k != l and adj_mat[k,l] == 1:
+                plt.plot(multi_agent_sys.agents[[k,l], 0], multi_agent_sys.agents[[k,l],1])
+
+    for m, (x,y, _, _) in enumerate(multi_agent_sys.agents):
+        plt.scatter(x,y, c='black')
+    
+    plt.pause(0.01)
+
+plt.show()
