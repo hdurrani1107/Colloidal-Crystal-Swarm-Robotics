@@ -29,7 +29,7 @@ import matplotlib.pyplot as plt
 ##########################
 
 #Number of Agents
-agents = 30
+agents = 50
 
 #Max Steps (Animation run-time)
 max_steps = 1000
@@ -50,6 +50,10 @@ H = 0.2
 #Range and Distance
 R = 12
 D = 10
+
+#Repulsion Agents
+obstacles = np.array([[25,25], [75,50], [10, 90]])
+R_obs = 10
 
 
 #Control Gain Parameters from the paper
@@ -95,6 +99,15 @@ def phi_alpha(z):
     d_alpha = sigma_norm([D])
     return bump_funct(z / r_alpha) * phi(z - d_alpha)
 
+#Function for repulsion-only agents
+def phi_obs(z):
+    if z < 1e-3:
+        return 1e6
+    elif z < R_obs:
+        return 100/ (z**2 + 1e-3)
+    else:
+        return 0.0
+
 
 ##########################
 # Multi-Agent Class
@@ -104,8 +117,23 @@ class multi_agent:
     #Initialize agents position and velocity
     def __init__(self, number, sampletime=0.1):
         self.dt = sampletime
-        self.agents = np.random.randint(0, 100, (number,2)).astype('float')
-        self.agents = np.hstack([self.agents, np.zeros((number,2))])
+
+        #Calculates if agent is outside obstacle at start
+        def is_outside_obstacles(pos, obstacles, R_obs):
+            return all(np.linalg.norm(pos-obs) > R_obs for obs in obstacles)
+        
+        #Ensures agent is in a valid position outside obstacles at start
+        def generate_valid_positions(n_agents, obstacles, R_obs, bounds=(0,100)):
+            valid_positions = []
+            while len(valid_positions) < n_agents:
+                candidate = np.random.uniform(bounds[0], bounds[1], 2)
+                if is_outside_obstacles(candidate, obstacles, R_obs):
+                    valid_positions.append(candidate)
+            return np.array(valid_positions)
+        
+        #Generate valid positions
+        positions = generate_valid_positions(number, obstacles, R_obs)
+        self.agents = np.hstack([positions, np.zeros((number,2))])
 
     #Update agents position and velocity
     def update(self,u=2):
@@ -137,6 +165,16 @@ def influence(q_i, q_js):
 #Function to calculate direction vectors (agents to neighbors)
 def local_dir(q_i, q_js):
     return sigma_grad(q_js - q_i)
+
+#Function to calculate repulsive forces from agents to obstacles
+def obs_rep(obstacles, agent_p):
+    u_obs = np.zeros(2)
+    for obs in obstacles:
+        d_vec = agent_p - obs
+        d_norm = np.linalg.norm(d_vec)
+        if d_norm < R_obs:
+            u_obs += phi_obs(d_norm) * (d_vec / (d_norm + 1e-3))
+    return u_obs
 
 ##########################
 # Main Loop
@@ -179,8 +217,11 @@ for i in range(max_steps):
         #Feedback from gamma agent
         u_gamma = -c1_gamma * sigma_1(agent_p - [50,50]) - c2_gamma * agent_q
 
+        #Feedback from obstacle
+        u_obs = 20 * obs_rep(obstacles, agent_p)
+
         #Total control input
-        u[j] = u_alpha + u_gamma
+        u[j] = u_alpha + u_gamma + u_obs
 
     #Update agent states
     multi_agent_sys.update(u)
@@ -197,6 +238,11 @@ for i in range(max_steps):
     for m, (x,y, _, _) in enumerate(multi_agent_sys.agents):
         plt.scatter(x,y, c='black')
     
+    for obs in obstacles:
+        circle = plt.Circle(obs, R_obs, color = 'red', fill = 'True', linestyle = '--')
+        plt.gca().add_patch(circle)
+        plt.scatter(*obs, c='red', marker='x')
+
     plt.pause(0.01)
 
 plt.show()
