@@ -22,6 +22,7 @@
 ##########################
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 ##########################
 # Parameters
@@ -51,7 +52,7 @@ R = 12
 D = 10
 
 #Repulsion Agents
-obstacles = np.array([[25,25], [75,50], [10, 90]])
+obstacles = np.array([[25,25,25], [75,50,50], [10,90,90]])
 R_obs = 10
 
 
@@ -125,21 +126,21 @@ class multi_agent:
         def generate_valid_positions(n_agents, obstacles, R_obs, bounds=(0,100)):
             valid_positions = []
             while len(valid_positions) < n_agents:
-                candidate = np.random.uniform(bounds[0], bounds[1], 2)
+                candidate = np.random.uniform(bounds[0], bounds[1], 3)
                 if is_outside_obstacles(candidate, obstacles, R_obs):
                     valid_positions.append(candidate)
             return np.array(valid_positions)
         
         #Generate valid positions
         positions = generate_valid_positions(number, obstacles, R_obs)
-        self.agents = np.hstack([positions, np.zeros((number,2))])
+        self.agents = np.hstack([positions, np.zeros((number,3))])
 
     #Update agents position and velocity
-    def update(self,u=2):
+    def update(self,u=3):
         q_dot = u
-        self.agents[:,2:] += q_dot * self.dt
-        p_dot = self.agents[:,2:]
-        self.agents[:,:2] += p_dot * self.dt
+        self.agents[:,3:] += q_dot * self.dt
+        p_dot = self.agents[:,3:]
+        self.agents[:,:3] += p_dot * self.dt
 
 ##########################
 # Helper Functions
@@ -152,7 +153,7 @@ def get_adj_mat(nodes, r):
     for i in range(n):
         for j in range(n):
             if i != j:
-                dist = np.linalg.norm(nodes[i,:2] - nodes[j, :2])
+                dist = np.linalg.norm(nodes[i,:3] - nodes[j, :3])
                 adj[i,j] = dist <= r
     return adj
 
@@ -167,10 +168,10 @@ def local_dir(q_i, q_js):
 
 #Function to calculate repulsive forces from agents to obstacles
 def obs_rep(obstacles, agent_p):
-    u_obs = np.zeros(2)
+    u_obs = np.zeros(3)
     for obs in obstacles:
         d_vec = agent_p - obs
-        d_norm = np.linalg.norm(d_vec)
+        d_norm = sigma_norm(d_vec)[0]
         if d_norm < R_obs:
             u_obs += phi_obs(d_norm) * (d_vec / (d_norm + 1e-3))
     return u_obs
@@ -181,26 +182,32 @@ def obs_rep(obstacles, agent_p):
 
 #Initialize Agents
 multi_agent_sys = multi_agent(number = agents)
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.set_xlim(0, 100)
+ax.set_ylim(0, 100)
+ax.set_zlim(0, 100)
 
 for i in range(max_steps):
+    ax.cla()
     #Compute Adjacency
     adj_mat = get_adj_mat(multi_agent_sys.agents, R)
-    u = np.zeros((agents, 2))
+    u = np.zeros((agents, 3))
 
     #Loop through agents
     for j in range(agents):
         #Get positions and velocity
-        agent_p = multi_agent_sys.agents[j, :2]
-        agent_q = multi_agent_sys.agents[j, 2:]
+        agent_p = multi_agent_sys.agents[j, :3]
+        agent_q = multi_agent_sys.agents[j, 3:]
 
         #Init control input
-        u_alpha = np.zeros(2)
+        u_alpha = np.zeros(3)
 
         #Identify and process neighbors
         neighbor_idx = adj_mat[j]
         if np.sum(neighbor_idx) > 1:
-            neighbor_p = multi_agent_sys.agents[neighbor_idx, :2]
-            neighbor_q = multi_agent_sys.agents[neighbor_idx, 2:]
+            neighbor_p = multi_agent_sys.agents[neighbor_idx, :3]
+            neighbor_q = multi_agent_sys.agents[neighbor_idx, 3:]
             direction = local_dir(agent_p, neighbor_p)
 
             #Interaction with neighbors
@@ -214,7 +221,7 @@ for i in range(max_steps):
             u_alpha = u1 + u2 
 
         #Feedback from gamma agent
-        u_gamma = -c1_gamma * sigma_1(agent_p - [50,50]) - c2_gamma * agent_q
+        u_gamma = -c1_gamma * sigma_1(agent_p - [50,50,50]) - c2_gamma * agent_q
 
         #Feedback from obstacle
         u_obs = 20 * obs_rep(obstacles, agent_p)
@@ -226,21 +233,28 @@ for i in range(max_steps):
     multi_agent_sys.update(u)
 
     #Plot Agents and their connections
-    plt.cla()
-    plt.axis([0,100,0,100])
+
+    def plot_sphere(ax, center, radius, color='red', alpha=0.2):
+        u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
+        x = radius * np.cos(u) * np.sin(v) + center[0]
+        y = radius * np.sin(u) * np.sin(v) + center[1]
+        z = radius * np.cos(v) + center[2]
+        ax.plot_surface(x, y, z, color=color, alpha=alpha, linewidth=0)
+
+    for obs in obstacles:
+        plot_sphere(ax, obs, R_obs)
 
     for k in range(agents):
         for l in range(agents):
             if k != l and adj_mat[k,l] == 1:
-                plt.plot(multi_agent_sys.agents[[k,l], 0], multi_agent_sys.agents[[k,l],1])
+                x_vals = [multi_agent_sys.agents[k, 0], multi_agent_sys.agents[l, 0]]
+                y_vals = [multi_agent_sys.agents[k, 1], multi_agent_sys.agents[l, 1]]
+                z_vals = [multi_agent_sys.agents[k, 2], multi_agent_sys.agents[l, 2]]
+                ax.plot(x_vals, y_vals, z_vals, linewidth=0.5)
 
-    for m, (x,y, _, _) in enumerate(multi_agent_sys.agents):
-        plt.scatter(x,y, c='black')
-    
-    for obs in obstacles:
-        circle = plt.Circle(obs, R_obs, color = 'red', fill = 'True', linestyle = '--')
-        plt.gca().add_patch(circle)
-        plt.scatter(*obs, c='red', marker='x')
+    for m, agent in enumerate(multi_agent_sys.agents):
+        x,y,z = agent[:3]
+        ax.scatter(x,y,z, s=5, c='green', marker = 's')
 
     plt.pause(0.01)
 
