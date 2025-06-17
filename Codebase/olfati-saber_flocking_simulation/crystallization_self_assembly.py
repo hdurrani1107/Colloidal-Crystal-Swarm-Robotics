@@ -16,7 +16,6 @@
 ##########################
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 
 ##########################
@@ -24,15 +23,21 @@ from mpl_toolkits.mplot3d import Axes3D
 ##########################
 
 #Number of Agents
-agents = 100
+agents = 200
 
 #Max Steps (Animation run-time)
 max_steps = 1000
 
 
 #Repulsion Agents
-obstacles = np.array([[25,25,25], [75,50,50], [10, 90, 90]])
+obstacles = np.array([[25,25], [75,50], [10, 90], [10, 10], [75, 75]])
 R_obs = 5
+
+#Agent-Radius, Interaction Radius, Max-Speed
+agent_radius = 2
+interact_radius = 5
+max_speed = 2
+
 
 
 ##########################
@@ -52,15 +57,54 @@ class multi_agent:
         def generate_valid_positions(n_agents, obstacles, R_obs, bounds=(0,100)):
             valid_positions = []
             while len(valid_positions) < n_agents:
-                candidate = np.random.uniform(bounds[0], bounds[1], 3)
+                candidate = np.random.uniform(bounds[0], bounds[1], 2)
                 if is_outside_obstacles(candidate, obstacles, R_obs):
                     valid_positions.append(candidate)
             return np.array(valid_positions)
         
         #Generate valid positions
         positions = generate_valid_positions(number, obstacles, R_obs)
-        self.agents = np.hstack([positions, np.zeros((number,3))])
+        self.agents = np.hstack([positions, np.zeros((number,2))])
 
+    def compute_forces(self, obstacles, R_obs, interact_radius):
+        n = len(self.agents)
+        forces = np.zeros((n,2))
+        for i in range (n):
+            pos_i = self.agents[i, :2]
+            force = np.zeros(2)
+
+            #Agent-Agent Repulsion
+            for j in range(n):
+                if i != j:
+                    pos_j = self.agents[j, :2]
+                    offset = pos_i - pos_j
+                    dist = np.linalg.norm(offset)
+                    if dist < interact_radius and dist > 1e-3:
+                        repulsion = offset / (dist**2 + 1e-3)
+                        force += repulsion
+            
+            for obs in obstacles:
+                offset = pos_i - obs
+                dist = np.linalg.norm(offset)
+                if dist < R_obs:
+                    force += offset / (dist**2 + 1e-3)
+
+            forces[i] = force
+
+        return forces
+    
+    def update(self, forces, noise_scale):
+        
+        #Brownian Motion
+        noise = np.random.normal(0, noise_scale, size = self.agents[:, 2:].shape)
+
+        self.agents[:, 2:] += (forces+noise) * self.dt
+        speeds = np.linalg.norm(self.agents[:, 2:], axis=1)
+        too_fast = speeds > max_speed
+        self.agents[too_fast, 2:] *= (max_speed / speeds[too_fast])[:, None]
+
+        #Update Positions
+        self.agents[:, :2] += self.agents[:,2:] * self.dt
 
 
 ##########################
@@ -69,35 +113,26 @@ class multi_agent:
 
 #Initialize Agents
 multi_agent_sys = multi_agent(number = agents)
+plt.figure()
+ax  = plt.gca()
+ax.set_xlim(0,100)
+ax.set_ylim(0,100)
 
-#for i in range(max_steps):
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.set_xlim(0, 100)
-ax.set_ylim(0, 100)
-ax.set_zlim(0, 100)
 
-def plot_sphere(ax, center, radius, color='red', alpha=0.2):
-    u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
-    x = radius * np.cos(u) * np.sin(v) + center[0]
-    y = radius * np.sin(u) * np.sin(v) + center[1]
-    z = radius * np.cos(v) + center[2]
-    ax.plot_surface(x, y, z, color=color, alpha=alpha, linewidth=0)
+for steps in range(max_steps):
+    
+    plt.cla()
+    forces = multi_agent_sys.compute_forces(obstacles, R_obs, interact_radius)
+    multi_agent_sys.update(forces, noise_scale=0.3)
 
-for obs in obstacles:
-    plot_sphere(ax, obs, R_obs)
+    for obs in obstacles:
+        circle = plt.Circle(obs, R_obs, color = 'red', fill = 'True', linestyle = '-')
+        ax.add_patch(circle)
+        plt.scatter(*obs, c='red', marker='x')
 
-for m, agents in enumerate(multi_agent_sys.agents):
-    x,y,z = agents[:3]
-    ax.scatter(x,y,z, s=5, c='green', marker = 's')
+    for m, (x,y, _, _) in enumerate(multi_agent_sys.agents):
+        plt.scatter(x,y, s=1, c='green', marker = 's')
 
-#for obs in obstacles:
-#    circle = plt.Circle(obs, R_obs, color = 'red', fill = 'True', linestyle = '-')
-#    plt.gca().add_patch(circle)
-#    plt.scatter(*obs, c='red', marker='x')
+    plt.pause(0.01)
 
-#for m, (x,y, _, _) in enumerate(multi_agent_sys.agents):
-#    plt.scatter(x,y, s=1, c='green', marker = 's')
-
-#plt.pause(0.01)
 plt.show()
