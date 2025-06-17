@@ -38,7 +38,11 @@ agent_radius = 2
 interact_radius = 5
 max_speed = 2
 
-
+#Lennard-Jones Interaction Coefficients
+epsilon = 1.0
+sigma = 3.0
+cutoff = 3 * sigma
+optimal_range = (0.9 * sigma, 1.1 * sigma)
 
 ##########################
 # Multi-Agent Class
@@ -79,9 +83,10 @@ class multi_agent:
                     pos_j = self.agents[j, :2]
                     offset = pos_i - pos_j
                     dist = np.linalg.norm(offset)
-                    if dist < interact_radius and dist > 1e-3:
-                        repulsion = offset / (dist**2 + 1e-3)
-                        force += repulsion
+                    if dist < cutoff and dist > 1e-3:
+                        r_unit = offset/dist
+                        lj_scalar = 24* epsilon * ((2 * (sigma**12) / dist**13) - ((sigma**6) / dist**7))
+                        force += lj_scalar * r_unit
             
             for obs in obstacles:
                 offset = pos_i - obs
@@ -131,7 +136,22 @@ for steps in range(max_steps):
         plt.scatter(*obs, c='red', marker='x')
 
     for m, (x,y, _, _) in enumerate(multi_agent_sys.agents):
-        plt.scatter(x,y, s=1, c='green', marker = 's')
+        plt.scatter(x,y, s=1, c='green', marker = 's', alpha=0.6)
+
+    for i in range(agents):
+        for j in range(i + 1, agents):
+            pos_i = multi_agent_sys.agents[i, :2]
+            pos_j = multi_agent_sys.agents[j, :2]
+            offset = pos_i - pos_j
+            dist = np.linalg.norm(offset)
+
+            if dist < cutoff:
+                if optimal_range[0] <= dist <= optimal_range[1]:
+                    color = 'green'
+                elif dist < optimal_range[0] or dist > optimal_range[1]:
+                    color = 'yellow' if dist < 1.5 * sigma else 'red'
+                
+                plt.plot([pos_i[0], pos_j[0]],[pos_i[1], pos_j[1]], color = color, linewidth=0.5)
 
     plt.pause(0.01)
 
