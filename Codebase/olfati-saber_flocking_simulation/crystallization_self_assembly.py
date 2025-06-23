@@ -23,14 +23,14 @@ import matplotlib.pyplot as plt
 ##########################
 
 #Number of Agents
-agents = 200
+agents = 20
 
 #Max Steps (Animation run-time)
 max_steps = 1000
 
 
 #Repulsion Agents
-obstacles = np.array([[25,25], [75,50], [10, 90], [10, 10], [75, 75]])
+obstacles = np.array([[10,10], [40,40], [10, 40], [30, 10]])
 R_obs = 5
 
 #Agent-Radius, Interaction Radius, Max-Speed
@@ -43,6 +43,10 @@ epsilon = 1.0
 sigma = 3.0
 cutoff = 3 * sigma
 optimal_range = (0.9 * sigma, 1.1 * sigma)
+
+#Gamme Control
+c1_gamma = 5
+c2_gamma = 0.2 * np.sqrt(c1_gamma)
 
 ##########################
 # Multi-Agent Class
@@ -58,7 +62,7 @@ class multi_agent:
             return all(np.linalg.norm(pos-obs) > R_obs for obs in obstacles)
         
         #Ensures agent is in a valid position outside obstacles at start
-        def generate_valid_positions(n_agents, obstacles, R_obs, bounds=(0,100)):
+        def generate_valid_positions(n_agents, obstacles, R_obs, bounds=(0,50)):
             valid_positions = []
             while len(valid_positions) < n_agents:
                 candidate = np.random.uniform(bounds[0], bounds[1], 2)
@@ -120,13 +124,14 @@ class multi_agent:
 multi_agent_sys = multi_agent(number = agents)
 plt.figure()
 ax  = plt.gca()
-ax.set_xlim(0,100)
-ax.set_ylim(0,100)
+ax.set_xlim(0,50)
+ax.set_ylim(0,50)
 
 
 for steps in range(max_steps):
     
     plt.cla()
+    plt.title(f't = {steps}')
     forces = multi_agent_sys.compute_forces(obstacles, R_obs, interact_radius)
     multi_agent_sys.update(forces, noise_scale=0.3)
 
@@ -154,5 +159,6 @@ for steps in range(max_steps):
                 plt.plot([pos_i[0], pos_j[0]],[pos_i[1], pos_j[1]], color = color, linewidth=0.5)
 
     plt.pause(0.01)
-
+    
+#plt.title('t = {steps}')
 plt.show()
