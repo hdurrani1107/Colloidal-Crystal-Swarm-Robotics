@@ -27,6 +27,7 @@ agents = 20
 
 #Max Steps (Animation run-time)
 max_steps = 1000
+counter = 1
 
 
 #Repulsion Agents
@@ -47,6 +48,15 @@ optimal_range = (0.9 * sigma, 1.1 * sigma)
 #Gamme Control
 c1_gamma = 5
 c2_gamma = 0.2 * np.sqrt(c1_gamma)
+
+##########################
+# Helper Function
+##########################
+
+#Prevent Singularities for Gamma Function
+def sigma_1(z):
+    return z / np.sqrt(1 + z ** 2)
+
 
 ##########################
 # Multi-Agent Class
@@ -79,6 +89,7 @@ class multi_agent:
         forces = np.zeros((n,2))
         for i in range (n):
             pos_i = self.agents[i, :2]
+            vel_i = self.agents[i, 2:]
             force = np.zeros(2)
 
             #Agent-Agent Repulsion
@@ -90,31 +101,36 @@ class multi_agent:
                     if dist < cutoff and dist > 1e-3:
                         r_unit = offset/dist
                         lj_scalar = 24* epsilon * ((2 * (sigma**12) / dist**13) - ((sigma**6) / dist**7))
-                        force += lj_scalar * r_unit
+                        force += lj_scalar * r_unit 
             
             for obs in obstacles:
                 offset = pos_i - obs
                 dist = np.linalg.norm(offset)
                 if dist < R_obs:
-                    force += offset / (dist**2 + 1e-3)
+                    force += 10 * offset / (dist**2 + 1e-3)
+            
+            gamma_pos = [25, 25]
+            if counter >= 150:
+                gamma_pos = [30,10]
+            objective = pos_i - gamma_pos
+            u_gamma = -c1_gamma * sigma_1(objective) - c2_gamma * vel_i
 
-            forces[i] = force
+            forces[i] = force + u_gamma
 
         return forces
     
     def update(self, forces, noise_scale):
         
-        #Brownian Motion
-        noise = np.random.normal(0, noise_scale, size = self.agents[:, 2:].shape)
-
-        self.agents[:, 2:] += (forces+noise) * self.dt
+        #Brownian Motion Removed because its strange
+        #noise = np.random.normal(0, noise_scale, size = self.agents[:, 2:].shape)
+ 
+        self.agents[:, 2:] += (forces) * self.dt
         speeds = np.linalg.norm(self.agents[:, 2:], axis=1)
         too_fast = speeds > max_speed
         self.agents[too_fast, 2:] *= (max_speed / speeds[too_fast])[:, None]
 
         #Update Positions
         self.agents[:, :2] += self.agents[:,2:] * self.dt
-
 
 ##########################
 # Main Loop
@@ -158,7 +174,9 @@ for steps in range(max_steps):
                 
                 plt.plot([pos_i[0], pos_j[0]],[pos_i[1], pos_j[1]], color = color, linewidth=0.5)
 
+    #xg, yg = gamma_pos
+    #ax.scatter(xg, yg, s=5, c='blue', marker = '*')
+    counter += 1
     plt.pause(0.01)
     
-#plt.title('t = {steps}')
 plt.show()
