@@ -4,9 +4,9 @@
 # by Reza Olfati-Saber
 #
 # Author: Humzah Durrani
-# STATUS: In-Progress
+# STATUS: Complete
 # To do:
-# Make 3-D, Other ideas?
+# 
 # Sources/References:
 #  1. R. Olfati-Saber. Flocking for multi-agent dynamic systems: 
 #     algorithms and theory. IEEE Transactions on Automatic Control, 

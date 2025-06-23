@@ -1,12 +1,11 @@
 #######################################################################
-# Its about to get wicked up in here:
-# Crystallization Self-Assembly Algorithm (See Sources)
+# It
+# 
 # 
 #
 # Author: Humzah Durrani
 # STATUS: In-Progress
-# To do: Boundary Configuration, Temperature Dynamic, Obstacles?, 3-D?   
-# 
+# To do: Keep it 2-D, Fix Obstacles, Boundary Condition Case (DID NOT ADD)
 # Sources/References:
 #
 #######################################################################
@@ -111,7 +110,7 @@ class multi_agent:
             
             gamma_pos = [25, 25]
             if counter >= 150:
-                gamma_pos = [30,10]
+                gamma_pos = [10,30]
             objective = pos_i - gamma_pos
             u_gamma = -c1_gamma * sigma_1(objective) - c2_gamma * vel_i
 
