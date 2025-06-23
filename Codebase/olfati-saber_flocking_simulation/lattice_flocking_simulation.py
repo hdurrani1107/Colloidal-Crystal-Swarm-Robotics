@@ -64,6 +64,9 @@ c2_alpha = 2 * np.sqrt(c1_alpha)
 c1_gamma = 5
 c2_gamma = 0.2 * np.sqrt(c1_gamma)
 
+#Counter for gamme change
+counter = 0
+
 ##########################
 # Core Math Functions
 ##########################
@@ -190,6 +193,7 @@ ax.set_zlim(0, 100)
 
 for i in range(max_steps):
     ax.cla()
+    print("timestep =", i)
     #Compute Adjacency
     adj_mat = get_adj_mat(multi_agent_sys.agents, R)
     u = np.zeros((agents, 3))
@@ -221,7 +225,11 @@ for i in range(max_steps):
             u_alpha = u1 + u2 
 
         #Feedback from gamma agent
-        u_gamma = -c1_gamma * sigma_1(agent_p - [50,50,50]) - c2_gamma * agent_q
+        gamma_pos = [50,50,50]
+        if counter >= 50:
+            gamma_pos = [75,75,75]
+        
+        u_gamma = -c1_gamma * sigma_1(agent_p - gamma_pos) - c2_gamma * agent_q
 
         #Feedback from obstacle
         u_obs = 20 * obs_rep(obstacles, agent_p)
@@ -255,6 +263,11 @@ for i in range(max_steps):
     for m, agent in enumerate(multi_agent_sys.agents):
         x,y,z = agent[:3]
         ax.scatter(x,y,z, s=5, c='green', marker = 's')
+
+    xg, yg, zg = gamma_pos
+    ax.scatter(xg, yg, zg, s=5, c='blue', marker = '*')
+    
+    counter += 1
 
     plt.pause(0.01)
 
