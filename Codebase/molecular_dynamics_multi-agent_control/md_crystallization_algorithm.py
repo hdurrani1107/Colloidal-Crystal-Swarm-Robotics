@@ -5,7 +5,7 @@
 #
 # Author: Humzah Durrani
 # STATUS: In-Progress
-# To do: Temperature Dynamic, Holding off on 3-D, Phase Change Dynamic   
+# To do: Holding off on 3-D, Phase Change Dynamic (See phase_change_simulation)   
 # 
 # Sources/References:
 #
@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 ##########################
 
 #Number of Agents
-agents = 50
+agents = 20
 
 #Max Steps (Animation run-time)
 max_steps = 1000
@@ -32,7 +32,7 @@ counter = 1
 
 #Agent-Radius, Interaction Radius, Max-Speed
 agent_radius = 2
-interact_radius = 5
+interact_radius = 5 
 max_speed = 2
 
 #Lennard-Jones Interaction Coefficients
@@ -51,7 +51,9 @@ obstacles = [obstacle1, obstacle2]
 R_obs = 10
 
 #Temperature Control
-temp = 10
+temp = 2
+
+
 ##########################
 # Helper Function
 ##########################
