@@ -193,7 +193,10 @@ ax.set_zlim(0, 100)
 
 for i in range(max_steps):
     ax.cla()
-    print("timestep =", i)
+    plt.title(f't = {i}')
+    ax.set_xlim(0, 100)
+    ax.set_ylim(0, 100)
+    ax.set_zlim(0, 100)
     #Compute Adjacency
     adj_mat = get_adj_mat(multi_agent_sys.agents, R)
     u = np.zeros((agents, 3))
@@ -225,9 +228,9 @@ for i in range(max_steps):
             u_alpha = u1 + u2 
 
         #Feedback from gamma agent
-        gamma_pos = [50,50,50]
-        if counter >= 50:
-            gamma_pos = [75,75,75]
+        gamma_pos = [75,75,75]
+        if counter >= 150:
+            gamma_pos = [25,25,25]
         
         u_gamma = -c1_gamma * sigma_1(agent_p - gamma_pos) - c2_gamma * agent_q
 
