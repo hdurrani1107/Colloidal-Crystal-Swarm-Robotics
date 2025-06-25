@@ -1,7 +1,6 @@
 #######################################################################
-# It
-# 
-# 
+# Just messed around with LJ Potential (Works pretty well)
+# Easier to Implement
 #
 # Author: Humzah Durrani
 # STATUS: In-Progress

@@ -49,6 +49,9 @@ obstacle1 = np.array([[20,0],[30,0],[30,22],[20,22],[20,0]])
 obstacle2 = np.array([[20,30],[30,30],[30,50],[20,50],[20,30]])
 obstacles = [obstacle1, obstacle2]
 R_obs = 5
+
+#Temperature Control
+temp = 10
 ##########################
 # Helper Function
 ##########################
@@ -121,6 +124,15 @@ class multi_agent:
             pos_i = self.agents[i, :2]
             vel_i = self.agents[i, 2:]
             total_force = np.zeros(2)
+            gamma_pos = [40, 40]
+            if counter >= 300:
+                gamma_pos = [10,10]
+            objective = pos_i - gamma_pos
+
+            #Temperature Control
+            t_control = np.linalg.norm(objective)
+            temp_decay = ((1.01) ** (t_control - 5)) + (1e-3)
+            #temp_decay = 1
 
             #LEONARD JONES POTENTIAL
             for j in range(n):
@@ -130,7 +142,7 @@ class multi_agent:
                     dist = np.linalg.norm(offset)
                     if dist < cutoff and dist > 1e-3:
                         r_unit = offset/dist
-                        lj_scalar = 24* epsilon * ((2 * (sigma**12) / dist**13) - ((sigma**6) / dist**7))
+                        lj_scalar = 24* (epsilon / temp_decay) * ((2 * ((sigma * temp_decay)**12) / dist**13) - (((sigma * temp_decay)**6) / dist**7))
                         total_force += lj_scalar * r_unit 
             
 
