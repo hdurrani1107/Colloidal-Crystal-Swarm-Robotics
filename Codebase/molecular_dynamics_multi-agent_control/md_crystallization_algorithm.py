@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 ##########################
 
 #Number of Agents
-agents = 20
+agents = 50
 
 #Max Steps (Animation run-time)
 max_steps = 1000
@@ -48,7 +48,7 @@ c2_gamma = 0.2 * np.sqrt(c1_gamma)
 obstacle1 = np.array([[20,0],[30,0],[30,22],[20,22],[20,0]])
 obstacle2 = np.array([[20,30],[30,30],[30,50],[20,50],[20,30]])
 obstacles = [obstacle1, obstacle2]
-R_obs = 5
+R_obs = 10
 
 #Temperature Control
 temp = 10
