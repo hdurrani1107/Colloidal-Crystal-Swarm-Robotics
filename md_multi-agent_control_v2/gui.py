@@ -40,7 +40,7 @@ sigma = 10
 cutoff = 3 * sigma
 optimal_range = (0.9 * sigma, 1.1 * sigma)
 
-#Gamme Control
+#Gamma Control
 c1_gamma = 10
 c2_gamma = 0.2 * np.sqrt(c1_gamma)
 gamma_pos = np.array([500,450])
@@ -48,8 +48,12 @@ gamma_pos = np.array([500,450])
 goal_found = False
 GOAL_RADIUS = 20  # in pixels
 
-#Temperature Control
-temp = 3
+#Langevin Thermostat
+friction = 1.0
+mass = 1.0
+kB = 1.0
+temp = 1.0
+
 
 ############################
 # Init Agents
@@ -315,6 +319,10 @@ while running:
                 print("Goal Found!")
                 break
 
+    #Langevin Thermostat
+    c1_lang = np.exp(-friction * time_delta)
+    c2_lang = np.sqrt((1 - c1_lang**2) * kB * temp / mass)
+    
     #Update Agents
     forces = md_sys.compute_forces(
         cutoff=cutoff,
@@ -325,7 +333,7 @@ while running:
         c2_gamma=c2_gamma if goal_found else 0,
     )
 
-    md_sys.update(forces, max_speed=max_speed)
+    md_sys.update(forces, max_speed=max_speed, c1_lang = c1_lang, c2_lang = c2_lang, mass = mass)
 
     # Clear and draw on main window surface
     for x in range(GRID_WIDTH):

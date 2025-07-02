@@ -44,11 +44,7 @@ class multi_agent:
             objective = pos_i - gamma_pos
 
             #Temperature Control
-            #t_control = np.linalg.norm(objective)
-            #temp_decay = (temp - (counter * 0.1)) + 1e-3
-            #if temp_decay < 1: temp_decay = 1
-            #print(temp_decay)
-            #temp_decay = 1
+
 
             #LJ POTENTIAL
             for j in range(n):
@@ -72,12 +68,12 @@ class multi_agent:
 
         return forces
     
-    def update(self, forces, max_speed):
+    def update(self, forces, max_speed, c1_lang, c2_lang, mass):
 
         #Brownian Motion Removed because its strange
-        #noise = np.random.normal(0, 1, size = self.agents[:, 2:].shape)
+        noise = np.random.normal(0, 1, size = self.agents[:, 2:].shape)
 
-        self.agents[:, 2:] += (forces) * self.dt
+        self.agents[:, 2:] += ((forces / mass) * self.dt) + (c2_lang * noise) + (self.agents[:, 2:] * c1_lang)
         speeds = np.linalg.norm(self.agents[:, 2:], axis=1)
         too_fast = speeds > max_speed
         self.agents[too_fast, 2:] *= (max_speed / speeds[too_fast])[:, None]
