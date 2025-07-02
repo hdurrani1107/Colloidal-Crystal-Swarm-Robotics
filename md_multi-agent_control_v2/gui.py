@@ -27,7 +27,7 @@ SIM_BOUNDS = [0, 600]
 PIXELS_PER_UNIT = 600 / (SIM_BOUNDS[1] - SIM_BOUNDS[0])
 
 #Number of Agents
-agents = 20
+agents = 30
 
 #Agent-Radius, Interaction Radius, Max-Speed
 agent_radius = 2.5
@@ -50,15 +50,15 @@ GOAL_RADIUS = 20  # in pixels
 
 #Langevin Thermostat
 friction = 1.0
-mass = 1.0
-kB = 1.0
-temp = 1.0
+kB = 1.380649e-23 #Boltzman Const
+mass = 1
+temp = 100.0
 
 
 ############################
 # Init Agents
 ############################
-md_sys = multi_agent(agents)
+md_sys = multi_agent(agents, temp)
 
 
 ############################
@@ -69,7 +69,7 @@ GRID_WIDTH = SIM_BOUNDS[1] // DISCOVERY_RES
 GRID_HEIGHT = SIM_BOUNDS[1] // DISCOVERY_RES
 
 discovery_grid = np.zeros((GRID_WIDTH, GRID_HEIGHT), dtype=bool)
-discovery_radius = 50  # in pixels
+discovery_radius = 20  # in pixels
 
 ############################
 # Object Setup
@@ -207,6 +207,51 @@ agent_label = pygame_gui.elements.UILabel(
     manager=manager
 )
 
+#Temperature Slider
+temp_slider = pygame_gui.elements.UIHorizontalSlider(
+    relative_rect=pygame.Rect((625, 420), (250, 25)),
+    start_value= 100,  # initial value
+    value_range=(0, 300),  # min to max
+    manager=manager
+)
+
+#Temperature Label
+temp_label = pygame_gui.elements.UILabel(
+    relative_rect=pygame.Rect((625, 395), (250, 25)),
+    text='Temperature (K): 100',
+    manager=manager
+)
+
+#Friction Slider
+friction_slider = pygame_gui.elements.UIHorizontalSlider(
+    relative_rect=pygame.Rect((625, 480), (250, 25)),
+    start_value= 1,  # initial value
+    value_range=(1, 100),  # min to max
+    manager=manager
+)
+
+#Friction Label
+friction_label = pygame_gui.elements.UILabel(
+    relative_rect=pygame.Rect((625, 455), (250, 25)),
+    text='Friction Coeff: 1',
+    manager=manager
+)
+
+#Mass Slider
+mass_slider = pygame_gui.elements.UIHorizontalSlider(
+    relative_rect=pygame.Rect((625, 540), (250, 25)),
+    start_value= 100,  # initial value
+    value_range=(1, 200),  # min to max
+    manager=manager
+)
+
+#Mass Label
+mass_label = pygame_gui.elements.UILabel(
+    relative_rect=pygame.Rect((625, 515), (250, 25)),
+    text='Mass Scale: 100',
+    manager=manager
+)
+
 
 
 ############################
@@ -300,13 +345,33 @@ while running:
                 gamma_update = round(raw_val, 1)
                 if c1_gamma != gamma_update:
                     c1_gamma = gamma_update
-                    gamma_label.set_text(f"GammA Value: {gamma_update}")
+                    gamma_label.set_text(f"Gamma Value: {gamma_update}")
 
             if event.ui_element == agent_slider:
                 agent_update = agent_slider.get_current_value()
                 if agents != agent_update:
                     agents = agent_update
                     agent_label.set_text(f"Agent Value: {agent_update}")
+
+            if event.ui_element == temp_slider:
+                temp_update = temp_slider.get_current_value()
+                if temp != temp_update:
+                    temp = temp_update
+                    temp_label.set_text(f"Temperature (K): {temp_update}")
+
+            if event.ui_element == friction_slider:
+                friction_update = friction_slider.get_current_value()
+                if friction != friction_update:
+                    friction = friction_update * 10e-27
+                    friction_label.set_text(f"Friction Coeff: {friction_update}")
+            
+            if event.ui_element == mass_slider:
+                mass_update = mass_slider.get_current_value()
+                if mass != mass_update:
+                    mass = (mass_update / 100) * mass
+
+
+            
 
     manager.update(time_delta)
     #window_surface.fill((0, 0, 0))
@@ -363,3 +428,4 @@ while running:
     pygame.display.update()
 
 pygame.quit()
+

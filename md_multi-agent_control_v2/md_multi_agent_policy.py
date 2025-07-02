@@ -25,14 +25,32 @@ def sigma_1(z):
 class multi_agent:
     
     #Initialize agents position and velocity
-    def __init__(self, number, sampletime=0.1, bounds=[0,50]):
+    def __init__(self, number, temp, sampletime=0.1, bounds=[0,50]):
         self.dt = sampletime
+        self.kB = 2
+        self.mass = 1
+        self.temp = temp
         positions = []
         while len(positions) < number:
             candidate = np.random.uniform(bounds[0], bounds[1], 2)
             positions.append(candidate)
         positions = np.array(positions)
-        self.agents = np.hstack([np.array(positions), np.zeros((number,2))])
+
+        #Maxwell-Boltzman Distribution for initial State
+        #Look to add to force update
+        sigma_v = np.sqrt(self.kB * temp / self.mass)  # m/s
+        velocities = np.random.normal(0, sigma_v, size=(number, 2))
+
+        # Remove center-of-mass drift
+        velocities -= np.mean(velocities, axis=0)
+
+        # Rescale to exact target temperature
+        KE = 0.5 * self.mass * np.sum(velocities**2)  # total kinetic energy
+        T_inst = (2 * KE) / (2 * number * self.kB)
+        lambda_rescale = np.sqrt(temp / T_inst)
+        velocities *= lambda_rescale
+
+        self.agents = np.hstack([np.array(positions), np.array(velocities)])
     
     def compute_forces(self, cutoff, epsilon, sigma, gamma_pos, c1_gamma, c2_gamma):
         n = len(self.agents)
@@ -42,9 +60,6 @@ class multi_agent:
             vel_i = self.agents[i, 2:]
             total_force = np.zeros(2)
             objective = pos_i - gamma_pos
-
-            #Temperature Control
-
 
             #LJ POTENTIAL
             for j in range(n):
@@ -70,10 +85,11 @@ class multi_agent:
     
     def update(self, forces, max_speed, c1_lang, c2_lang, mass):
 
-        #Brownian Motion Removed because its strange
+        #Noise
         noise = np.random.normal(0, 1, size = self.agents[:, 2:].shape)
 
-        self.agents[:, 2:] += ((forces / mass) * self.dt) + (c2_lang * noise) + (self.agents[:, 2:] * c1_lang)
+        #Langevin Velocity Verlet
+        self.agents[:, 2:] = (((forces / mass) * self.dt) + (c2_lang * noise) + (self.agents[:, 2:] * c1_lang))
         speeds = np.linalg.norm(self.agents[:, 2:], axis=1)
         too_fast = speeds > max_speed
         self.agents[too_fast, 2:] *= (max_speed / speeds[too_fast])[:, None]
