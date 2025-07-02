@@ -27,7 +27,7 @@ class multi_agent:
     #Initialize agents position and velocity
     def __init__(self, number, temp, sampletime=0.1, bounds=[0,50]):
         self.dt = sampletime
-        self.kB = 2
+        self.kB = 1.380649e-23
         self.mass = 1
         self.temp = temp
         positions = []
@@ -51,6 +51,14 @@ class multi_agent:
         velocities *= lambda_rescale
 
         self.agents = np.hstack([np.array(positions), np.array(velocities)])
+
+    #Langevin Thermostat
+    def update_thermostat_params(self, temp, friction, mass):
+        self.temp = temp
+        self.mass = mass
+        self.gamma = friction
+        self.c1_lang = np.exp(-self.gamma * self.dt)
+        self.c2_lang = np.sqrt((1 - self.c1_lang**2) * self.kB * self.temp / self.mass)
     
     def compute_forces(self, cutoff, epsilon, sigma, gamma_pos, c1_gamma, c2_gamma):
         n = len(self.agents)
@@ -83,13 +91,14 @@ class multi_agent:
 
         return forces
     
-    def update(self, forces, max_speed, c1_lang, c2_lang, mass):
+    def update(self, forces, max_speed):
 
         #Noise
         noise = np.random.normal(0, 1, size = self.agents[:, 2:].shape)
 
         #Langevin Velocity Verlet
-        self.agents[:, 2:] = (((forces / mass) * self.dt) + (c2_lang * noise) + (self.agents[:, 2:] * c1_lang))
+        self.agents[:, 2:] = (((forces / self.mass) * self.dt) + (self.c2_lang * noise) +
+                              (self.agents[:, 2:] * self.c1_lang))
         speeds = np.linalg.norm(self.agents[:, 2:], axis=1)
         too_fast = speeds > max_speed
         self.agents[too_fast, 2:] *= (max_speed / speeds[too_fast])[:, None]

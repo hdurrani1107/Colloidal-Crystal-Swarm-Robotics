@@ -51,7 +51,8 @@ GOAL_RADIUS = 20  # in pixels
 #Langevin Thermostat
 friction = 1.0
 kB = 1.380649e-23 #Boltzman Const
-mass = 1
+base_mass = 1.0
+mass = 1.0
 temp = 100.0
 
 
@@ -248,7 +249,7 @@ mass_slider = pygame_gui.elements.UIHorizontalSlider(
 #Mass Label
 mass_label = pygame_gui.elements.UILabel(
     relative_rect=pygame.Rect((625, 515), (250, 25)),
-    text='Mass Scale: 100',
+    text='Mass: 1',
     manager=manager
 )
 
@@ -362,13 +363,14 @@ while running:
             if event.ui_element == friction_slider:
                 friction_update = friction_slider.get_current_value()
                 if friction != friction_update:
-                    friction = friction_update * 10e-27
+                    friction = friction_update
                     friction_label.set_text(f"Friction Coeff: {friction_update}")
             
             if event.ui_element == mass_slider:
                 mass_update = mass_slider.get_current_value()
-                if mass != mass_update:
-                    mass = (mass_update / 100) * mass
+                if base_mass != mass_update:
+                    mass = (mass_update / 100) * base_mass
+                    mass_label.set_text(f"Mass Scale: {round(mass, 2)}")
 
 
             
@@ -385,8 +387,7 @@ while running:
                 break
 
     #Langevin Thermostat
-    c1_lang = np.exp(-friction * time_delta)
-    c2_lang = np.sqrt((1 - c1_lang**2) * kB * temp / mass)
+    md_sys.update_thermostat_params(temp=temp, friction=friction, mass=mass)
     
     #Update Agents
     forces = md_sys.compute_forces(
@@ -398,7 +399,7 @@ while running:
         c2_gamma=c2_gamma if goal_found else 0,
     )
 
-    md_sys.update(forces, max_speed=max_speed, c1_lang = c1_lang, c2_lang = c2_lang, mass = mass)
+    md_sys.update(forces, max_speed=max_speed)
 
     # Clear and draw on main window surface
     for x in range(GRID_WIDTH):
