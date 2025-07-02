@@ -35,8 +35,8 @@ interact_radius = 2.5
 max_speed = 5
 
 #Lennard-Jones Interaction Coefficients
-epsilon = 10
-sigma = 10
+epsilon = 2
+sigma = 2
 cutoff = 3 * sigma
 optimal_range = (0.9 * sigma, 1.1 * sigma)
 
@@ -50,10 +50,10 @@ GOAL_RADIUS = 20  # in pixels
 
 #Langevin Thermostat
 friction = 1.0
-kB = 1.380649e-23 #Boltzman Const
+kB = 1 #Boltzman Const
 base_mass = 1.0
 mass = 1.0
-temp = 100.0
+temp = 10
 
 
 ############################
@@ -70,7 +70,7 @@ GRID_WIDTH = SIM_BOUNDS[1] // DISCOVERY_RES
 GRID_HEIGHT = SIM_BOUNDS[1] // DISCOVERY_RES
 
 discovery_grid = np.zeros((GRID_WIDTH, GRID_HEIGHT), dtype=bool)
-discovery_radius = 20  # in pixels
+discovery_radius = 10  # in pixels
 
 ############################
 # Object Setup
@@ -147,7 +147,7 @@ lj_title = pygame_gui.elements.UILabel(relative_rect=pygame.Rect(((625, 135),(25
 #Epsilon Slider
 epsilon_slider = pygame_gui.elements.UIHorizontalSlider(
     relative_rect=pygame.Rect((625, 180), (250, 25)),
-    start_value= 25,  # initial value
+    start_value= 2,  # initial value
     value_range=(1.0, 50.0),  # min to max
     manager=manager
 )
@@ -162,7 +162,7 @@ epsilon_label = pygame_gui.elements.UILabel(
 #Sigma Slider
 sigma_slider = pygame_gui.elements.UIHorizontalSlider(
     relative_rect=pygame.Rect((625, 220), (250, 25)),
-    start_value= 25,  # initial value
+    start_value= 2,  # initial value
     value_range=(1.0, 50.0),  # min to max
     manager=manager
 )
@@ -211,15 +211,15 @@ agent_label = pygame_gui.elements.UILabel(
 #Temperature Slider
 temp_slider = pygame_gui.elements.UIHorizontalSlider(
     relative_rect=pygame.Rect((625, 420), (250, 25)),
-    start_value= 100,  # initial value
-    value_range=(0, 300),  # min to max
+    start_value= 10,  # initial value
+    value_range=(1, 20),  # min to max
     manager=manager
 )
 
 #Temperature Label
 temp_label = pygame_gui.elements.UILabel(
     relative_rect=pygame.Rect((625, 395), (250, 25)),
-    text='Temperature (K): 100',
+    text='Temperature (K): 2',
     manager=manager
 )
 
@@ -227,7 +227,7 @@ temp_label = pygame_gui.elements.UILabel(
 friction_slider = pygame_gui.elements.UIHorizontalSlider(
     relative_rect=pygame.Rect((625, 480), (250, 25)),
     start_value= 1,  # initial value
-    value_range=(1, 100),  # min to max
+    value_range=(1, 5),  # min to max
     manager=manager
 )
 
@@ -388,6 +388,7 @@ while running:
 
     #Langevin Thermostat
     md_sys.update_thermostat_params(temp=temp, friction=friction, mass=mass)
+    print(f"c1: {md_sys.c1_lang:.5f}, c2: {md_sys.c2_lang:.5e}, Temp: {md_sys.temp}, γ: {md_sys.gamma}")
     
     #Update Agents
     forces = md_sys.compute_forces(

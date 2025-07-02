@@ -27,7 +27,7 @@ class multi_agent:
     #Initialize agents position and velocity
     def __init__(self, number, temp, sampletime=0.1, bounds=[0,50]):
         self.dt = sampletime
-        self.kB = 1.380649e-23
+        self.kB = 1
         self.mass = 1
         self.temp = temp
         positions = []
@@ -99,6 +99,8 @@ class multi_agent:
         #Langevin Velocity Verlet
         self.agents[:, 2:] = (((forces / self.mass) * self.dt) + (self.c2_lang * noise) +
                               (self.agents[:, 2:] * self.c1_lang))
+        #Active particle
+        self.agents[:, 2:] += 0.05 * np.random.normal(0, 1, size=self.agents[:, 2:].shape)
         speeds = np.linalg.norm(self.agents[:, 2:], axis=1)
         too_fast = speeds > max_speed
         self.agents[too_fast, 2:] *= (max_speed / speeds[too_fast])[:, None]
