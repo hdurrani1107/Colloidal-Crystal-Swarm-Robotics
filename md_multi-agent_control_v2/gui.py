@@ -148,7 +148,7 @@ lj_title = pygame_gui.elements.UILabel(relative_rect=pygame.Rect(((625, 135),(25
 epsilon_slider = pygame_gui.elements.UIHorizontalSlider(
     relative_rect=pygame.Rect((625, 180), (250, 25)),
     start_value= 2,  # initial value
-    value_range=(1.0, 50.0),  # min to max
+    value_range=(1.0, 100.0),  # min to max
     manager=manager
 )
 
@@ -163,7 +163,7 @@ epsilon_label = pygame_gui.elements.UILabel(
 sigma_slider = pygame_gui.elements.UIHorizontalSlider(
     relative_rect=pygame.Rect((625, 220), (250, 25)),
     start_value= 2,  # initial value
-    value_range=(1.0, 50.0),  # min to max
+    value_range=(1.0, 100.0),  # min to max
     manager=manager
 )
 
