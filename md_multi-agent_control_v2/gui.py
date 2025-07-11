@@ -39,14 +39,28 @@ epsilon = 10
 sigma = 10
 cutoff = 3 * sigma
 optimal_range = (0.9 * sigma, 1.1 * sigma)
-
 #Gamma Control
 c1_gamma = 10
 c2_gamma = 0.2 * np.sqrt(c1_gamma)
-gamma_pos = np.array([500,450])
+NUM_GOALS = 3
+GOAL_RADIUS = 8  # Keep as is
+gamma_pos = [np.random.randint(100, 500, size=2) for _ in range(NUM_GOALS)]
 
-goal_found = False
-GOAL_RADIUS = 20  # in pixels
+goal_found = [False] * NUM_GOALS
+
+
+#Obstacles
+NUM_OBSTACLES = 5
+OBSTACLE_MIN_RADIUS = 20
+OBSTACLE_MAX_RADIUS = 60
+
+obstacles = [
+    {
+        "pos": np.random.randint(100, 500, size=2),
+        "radius": np.random.randint(OBSTACLE_MIN_RADIUS, OBSTACLE_MAX_RADIUS)
+    }
+    for _ in range(NUM_OBSTACLES)
+]
 
 #Langevin Thermostat
 friction = 0.1
@@ -56,7 +70,8 @@ temp = 1.0
 
 
 #Agent specific Cooling
-cooling_radius = 150 / PIXELS_PER_UNIT
+cooling_radius = 75 / PIXELS_PER_UNIT
+cooling_radius_px = int(cooling_radius * PIXELS_PER_UNIT)
 min_temp = 0.05
 
 GOAL_AGENT_LIMIT = 10  # Max agents allowed within cooling radius of the goal
@@ -92,21 +107,21 @@ window_surface = pygame.display.set_mode(window_size)
 manager = pygame_gui.UIManager(window_size)
 
 #Goal Coordinate Text
-text_input = pygame_gui.elements.UILabel(relative_rect=pygame.Rect(((0, 620),(250, 30))),
-                                         text= "Insert Goal Coordinates as 'x,y' ", manager=manager)
+#text_input = pygame_gui.elements.UILabel(relative_rect=pygame.Rect(((0, 620),(250, 30))),
+#                                         text= "Insert Goal Coordinates as 'x,y' ", manager=manager)
 
 #Coordinate Input
-coord_input = pygame_gui.elements.UITextEntryLine(
-    relative_rect=pygame.Rect((10, 650), (200, 30)),
-    manager=manager
-)
+#coord_input = pygame_gui.elements.UITextEntryLine(
+#    relative_rect=pygame.Rect((10, 650), (200, 30)),
+#    manager=manager
+#)
 
 #Coordinate Submit Button
-coord_button = pygame_gui.elements.UIButton(
-    relative_rect=pygame.Rect((225, 650), (100, 30)),
-    text='Set Goal',
-    manager=manager
-)
+#coord_button = pygame_gui.elements.UIButton(
+#    relative_rect=pygame.Rect((225, 650), (100, 30)),
+#    text='Set Goal',
+#    manager=manager
+#)
 
 #Lennard Jones Coeffs
 lj_title = pygame_gui.elements.UILabel(relative_rect=pygame.Rect(((625, 135),(250, 25))),
@@ -182,19 +197,31 @@ agent_label = pygame_gui.elements.UILabel(
 # Agent Drawing Function
 ############################
 
-def draw_agents(surface, agent_data, gamma_pos):
+def draw_agents(surface, agent_data, gamma_pos, agents_temps, obstacles, cooling_radius_px):
     #pygame.draw.rect(window_surface, (128, 0, 128), pygame.Rect(0, 0, 600, 600))
 
     # Draw agents
-    for agent in agent_data:
+    for agent, temp_val in zip(agent_data, agent_temps):
         x, y = agent[:2]
         screen_x = int(x * PIXELS_PER_UNIT)
         screen_y = int(y * PIXELS_PER_UNIT)
-        pygame.draw.circle(surface, (0, 200, 255), (screen_x, screen_y), 5)
+        temp_norm = (temp_val - min_temp) / (temp - min_temp) if temp > min_temp else 0
+        red = int(255 * temp_norm)
+        blue = int(255 * (1 - temp_norm))
+        color = (red, 0, blue)
+        pygame.draw.circle(surface, color, (screen_x, screen_y), 5)
 
     # Draw goal
-    gx, gy = (gamma_pos * PIXELS_PER_UNIT).astype(int)
-    pygame.draw.circle(surface, (255, 0, 0), (gx, gy), 6)
+    for goal in gamma_pos:
+        gx, gy = goal
+        pygame.draw.circle(surface, (255, 0, 0), (gx, gy), GOAL_RADIUS)
+        pygame.draw.circle(window_surface, (100, 255, 100), (gx, gy), cooling_radius_px, 1)
+
+# Draw obstacles
+    for obs in obstacles:
+        ox, oy = obs["pos"]
+        radius = obs["radius"]
+        pygame.draw.circle(surface, (100, 100, 100), (ox, oy), radius)
 
 
 ############################
@@ -214,26 +241,27 @@ while running:
         # Handle GUI events
         manager.process_events(event)
 
-        if event.type == pygame_gui.UI_BUTTON_PRESSED:
-            if event.ui_element == coord_button:
-                raw_text = coord_input.get_text()
-                try:
-                    raw_text = coord_input.get_text()
-                    coords = [int(val.strip()) for val in raw_text.split(',')]
-                    if len(coords) != 2:
-                        raise ValueError("Exactly two coordinates required.")
+        #if event.type == pygame_gui.UI_BUTTON_PRESSED:
+            #if event.ui_element == coord_button:
+            #    raw_text = coord_input.get_text()
+            #    try:
+            #        raw_text = coord_input.get_text()
+            #        coords = [int(val.strip()) for val in raw_text.split(',')]
+            #        if len(coords) != 2:
+            #            raise ValueError("Exactly two coordinates required.")
                     
                     # Result: integer array of shape (1, 2)
-                    goal_array = np.array(coords, dtype=int)
-                    gamma_pos = goal_array
-                    goal_found = False
-                    text_input.set_text(f"Goal: {goal_array}")
-                    print("Goal array shape:", goal_array.shape)
-                    print("Goal array value:", goal_array)
+            #        goal_array = np.array(coords, dtype=int)
+            #        gamma_pos = goal_array
+            #        goal_found = False
+            #        text_input.set_text(f"Goal: {goal_array}")
+            #        print("Goal array shape:", goal_array.shape)
+            #        print("Goal array value:", goal_array)
 
-                except Exception as e:
-                    text_input.set_text(f"Invalid input: {e}")
-                    print("Error parsing input:", e)
+            #    except Exception as e:
+            #        text_input.set_text(f"Invalid input: {e}")
+            #        print("Error parsing input:", e)
+
 
         if event.type == pygame_gui.UI_HORIZONTAL_SLIDER_MOVED:
 
@@ -272,32 +300,32 @@ while running:
         counter += 1
 
 
-    for agent in md_sys.agents:
-        dist_to_goal = np.linalg.norm(agent[:2] * PIXELS_PER_UNIT - gamma_pos)
-        if dist_to_goal < GOAL_RADIUS:
-            goal_found = True
-            break
-
-
-    agents_near_goal = 0
+    for i, goal in enumerate(gamma_pos):
+        for agent in md_sys.agents:
+            dist = np.linalg.norm(agent[:2] * PIXELS_PER_UNIT - goal)
+            if dist < GOAL_RADIUS:
+                goal_found[i] = True
+                break
 
 
     #Langevin Thermostat
+    goal_sim_units = [np.array(g) / PIXELS_PER_UNIT for g in gamma_pos]
     agent_c1 = []
     agent_c2 = []
-    goal_mask = []
+    agent_temps = []
+    agents_near_goal = sum( np.linalg.norm(agent[:2] - goal_sim_units) < cooling_radius
+    for agent in md_sys.agents)
 
     for agent in md_sys.agents:
-        goal_sim_units = gamma_pos / PIXELS_PER_UNIT
         dist_to_goal = np.linalg.norm(agent[:2] - goal_sim_units)
-        if dist_to_goal < cooling_radius:
-            agents_near_goal += 1
         local_temp = temp
 
-        sees_goal = True
+        sees_goal = False
         if goal_found:
-            if agents_near_goal >= GOAL_AGENT_LIMIT and dist_to_goal > cooling_radius:
-                sees_goal = False  # ignore goal if it's saturated
+            if agents_near_goal < GOAL_AGENT_LIMIT:
+                sees_goal = True
+            elif dist_to_goal < cooling_radius:
+                sees_goal = True  # part of crystallizing group
 
         # Apply cooling effect based on distance to goal
         if goal_found and dist_to_goal < cooling_radius:
@@ -309,7 +337,9 @@ while running:
 
         agent_c1.append(c1)
         agent_c2.append(c2)
-        goal_mask.append(sees_goal)
+        agent_temps.append(local_temp)
+
+    goal_force_on = goal_found and agents_near_goal < GOAL_AGENT_LIMIT
     
     #Update Agents
     forces = md_sys.compute_forces(
@@ -317,8 +347,9 @@ while running:
         epsilon=epsilon,
         sigma=sigma,
         gamma_pos=gamma_pos,
-        c1_gamma=c1_gamma if goal_found else 0,
-        c2_gamma=c2_gamma if goal_found else 0,
+        c1_gamma=c1_gamma if goal_force_on else 0,
+        c2_gamma=c2_gamma if goal_force_on else 0,
+        obstacles=obstacles
     )
 
     md_sys.update(forces, max_speed=max_speed, c1_lang = agent_c1, c2_lang = agent_c2, mass = mass)
@@ -344,8 +375,7 @@ while running:
                     discovery_grid[nx, ny] = True
 
     # Draw agents and goal on the main surface
-    draw_agents(window_surface, md_sys.agents, gamma_pos)
-    pygame.draw.circle(window_surface, (100, 255, 100), (500, 450), cooling_radius, 1)  # Light green cooling zone
+    draw_agents(window_surface, md_sys.agents, gamma_pos, agent_temps, obstacles, cooling_radius_px)
     pygame.draw.rect(window_surface, (30, 30, 30), pygame.Rect(600, 0, 300, 700))
     pygame.draw.rect(window_surface, (30, 30, 30), pygame.Rect(0 , 600, 700, 300))
     manager.draw_ui(window_surface)
