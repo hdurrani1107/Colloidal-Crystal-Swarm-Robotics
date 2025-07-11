@@ -30,9 +30,9 @@ PIXELS_PER_UNIT = 600 / (SIM_BOUNDS[1] - SIM_BOUNDS[0])
 agents = 20
 
 #Agent-Radius, Interaction Radius, Max-Speed
-agent_radius = 2.5
-interact_radius = 2.5
-max_speed = 5
+#agent_radius = 2.5
+#interact_radius = 2.5
+max_speed = 15
 
 #Lennard-Jones Interaction Coefficients
 epsilon = 10
@@ -49,10 +49,19 @@ goal_found = False
 GOAL_RADIUS = 20  # in pixels
 
 #Langevin Thermostat
-friction = 1.0
+friction = 0.1
 mass = 1.0
 kB = 1.0
 temp = 1.0
+
+
+#Agent specific Cooling
+cooling_radius = 150 / PIXELS_PER_UNIT
+min_temp = 0.05
+
+GOAL_AGENT_LIMIT = 10  # Max agents allowed within cooling radius of the goal
+
+counter = 1
 
 
 ############################
@@ -98,46 +107,6 @@ coord_button = pygame_gui.elements.UIButton(
     text='Set Goal',
     manager=manager
 )
-
-#Goal Coordinate Text
-text_input = pygame_gui.elements.UILabel(relative_rect=pygame.Rect(((625, 15),(250, 25))),
-                                         text= "Agent Interaction Values:", manager=manager)
-
-
-##################################################
-# REMOVE TWO THINGS: Agent Radius, Agent Interact
-##################################################
-
-#Agent Radius Slider
-agent_radius_slider = pygame_gui.elements.UIHorizontalSlider(
-    relative_rect=pygame.Rect((625, 60), (250, 25)),
-    start_value= 2.5,  # initial value
-    value_range=(1.0, 5.0),  # min to max
-    manager=manager
-)
-
-#Agent Radius Label
-agent_radius_label = pygame_gui.elements.UILabel(
-    relative_rect=pygame.Rect((625, 40), (250, 25)),
-    text='Agent Radius: 2.5',
-    manager=manager
-)
-
-#Interact Radius Slider
-interact_radius_slider = pygame_gui.elements.UIHorizontalSlider(
-    relative_rect=pygame.Rect((625, 100), (250, 25)),
-    start_value= 2.5,  # initial value
-    value_range=(1.0, 5.0),  # min to max
-    manager=manager
-)
-
-#Interact Radius Label
-interact_radius_label = pygame_gui.elements.UILabel(
-    relative_rect=pygame.Rect((625, 80), (250, 25)),
-    text='Interact Radius: 2.5',
-    manager=manager
-)
-
 
 #Lennard Jones Coeffs
 lj_title = pygame_gui.elements.UILabel(relative_rect=pygame.Rect(((625, 135),(250, 25))),
@@ -267,19 +236,6 @@ while running:
                     print("Error parsing input:", e)
 
         if event.type == pygame_gui.UI_HORIZONTAL_SLIDER_MOVED:
-            if event.ui_element == agent_radius_slider:
-                raw_val = agent_radius_slider.get_current_value()
-                agent_radius_update = round(raw_val, 1)
-                if agent_radius != agent_radius_update:
-                    agent_radius = agent_radius_update
-                    agent_radius_label.set_text(f"Agent Radius: {agent_radius_update}")
-
-            if event.ui_element == interact_radius_slider:
-                raw_val = interact_radius_slider.get_current_value()
-                interact_radius_update = round(raw_val, 1) 
-                if interact_radius != interact_radius_update:
-                    interact_radius = interact_radius_update
-                    interact_radius_label.set_text(f"Interact Radius: {interact_radius_update}")
 
             if event.ui_element == epsilon_slider:
                 raw_val = epsilon_slider.get_current_value()
@@ -311,17 +267,49 @@ while running:
     manager.update(time_delta)
     #window_surface.fill((0, 0, 0))
 
-    if not goal_found:
-        for agent in md_sys.agents:
-            dist_to_goal = np.linalg.norm(agent[:2] * PIXELS_PER_UNIT - gamma_pos)
-            if dist_to_goal < GOAL_RADIUS:
-                goal_found = True
-                print("Goal Found!")
-                break
+    if goal_found and counter == 1:
+        print("Goal Found!")
+        counter += 1
+
+
+    for agent in md_sys.agents:
+        dist_to_goal = np.linalg.norm(agent[:2] * PIXELS_PER_UNIT - gamma_pos)
+        if dist_to_goal < GOAL_RADIUS:
+            goal_found = True
+            break
+
+
+    agents_near_goal = 0
+
 
     #Langevin Thermostat
-    c1_lang = np.exp(-friction * time_delta)
-    c2_lang = np.sqrt((1 - c1_lang**2) * kB * temp / mass)
+    agent_c1 = []
+    agent_c2 = []
+    goal_mask = []
+
+    for agent in md_sys.agents:
+        goal_sim_units = gamma_pos / PIXELS_PER_UNIT
+        dist_to_goal = np.linalg.norm(agent[:2] - goal_sim_units)
+        if dist_to_goal < cooling_radius:
+            agents_near_goal += 1
+        local_temp = temp
+
+        sees_goal = True
+        if goal_found:
+            if agents_near_goal >= GOAL_AGENT_LIMIT and dist_to_goal > cooling_radius:
+                sees_goal = False  # ignore goal if it's saturated
+
+        # Apply cooling effect based on distance to goal
+        if goal_found and dist_to_goal < cooling_radius:
+            cooling_factor = dist_to_goal / cooling_radius  # 1 (far) to 0 (near)
+            local_temp = max(min_temp, temp * cooling_factor)
+
+        c1 = np.exp(-friction * time_delta)
+        c2 = np.sqrt((1 - c1**2) * kB * local_temp / mass)
+
+        agent_c1.append(c1)
+        agent_c2.append(c2)
+        goal_mask.append(sees_goal)
     
     #Update Agents
     forces = md_sys.compute_forces(
@@ -333,7 +321,7 @@ while running:
         c2_gamma=c2_gamma if goal_found else 0,
     )
 
-    md_sys.update(forces, max_speed=max_speed, c1_lang = c1_lang, c2_lang = c2_lang, mass = mass)
+    md_sys.update(forces, max_speed=max_speed, c1_lang = agent_c1, c2_lang = agent_c2, mass = mass)
 
     # Clear and draw on main window surface
     for x in range(GRID_WIDTH):
@@ -357,6 +345,7 @@ while running:
 
     # Draw agents and goal on the main surface
     draw_agents(window_surface, md_sys.agents, gamma_pos)
+    pygame.draw.circle(window_surface, (100, 255, 100), (500, 450), cooling_radius, 1)  # Light green cooling zone
     pygame.draw.rect(window_surface, (30, 30, 30), pygame.Rect(600, 0, 300, 700))
     pygame.draw.rect(window_surface, (30, 30, 30), pygame.Rect(0 , 600, 700, 300))
     manager.draw_ui(window_surface)

@@ -70,38 +70,41 @@ class multi_agent:
     
     def update(self, forces, max_speed, c1_lang, c2_lang, mass):
 
-        #Brownian Motion Removed because its strange
-        noise = np.random.normal(0, 1, size = self.agents[:, 2:].shape)
-
-        self.agents[:, 2:] += ((forces / mass) * self.dt) + (c2_lang * noise) + (self.agents[:, 2:] * c1_lang)
-        speeds = np.linalg.norm(self.agents[:, 2:], axis=1)
-        too_fast = speeds > max_speed
-        self.agents[too_fast, 2:] *= (max_speed / speeds[too_fast])[:, None]
-
-        #Update Positions
-        self.agents[:, :2] += self.agents[:,2:] * self.dt
-
-         # --- Boundary Check and Bounce ---
-        # Bounds
-        x_min, x_max = 0, 600
-        y_min, y_max = 0, 600
-
         for i in range(len(self.agents)):
-            x, y = self.agents[i, :2]
-            vx, vy = self.agents[i, 2:]
+            v = self.agents[i, 2:]
+            f = forces[i]
 
-            # Check X boundaries
-            if x < x_min:
-                self.agents[i, 0] = x_min
-                self.agents[i, 2] *= -1  # Reflect x-velocity
-            elif x > x_max:
-                self.agents[i, 0] = x_max
+            # Generate Gaussian noise
+            noise = np.random.normal(0, 1, size=2)
+
+            # Langevin velocity update
+            v_new = (
+                v * c1_lang[i] +                         # friction decay
+                (f / mass) * self.dt +                   # deterministic force
+                c2_lang[i] * noise                       # stochastic force
+            )
+
+            # Clamp speed to max
+            speed = np.linalg.norm(v_new)
+            if speed > max_speed:
+                v_new = (v_new / speed) * max_speed
+
+            self.agents[i, 2:] = v_new
+            self.agents[i, :2] += v_new * self.dt  # Position update
+
+            # --- Boundary Check and Bounce ---
+            x, y = self.agents[i, :2]
+
+            if x < 0:
+                self.agents[i, 0] = 0
+                self.agents[i, 2] *= -1
+            elif x > 600:
+                self.agents[i, 0] = 600
                 self.agents[i, 2] *= -1
 
-            # Check Y boundaries
-            if y < y_min:
-                self.agents[i, 1] = y_min
-                self.agents[i, 3] *= -1  # Reflect y-velocity
-            elif y > y_max:
-                self.agents[i, 1] = y_max
+            if y < 0:
+                self.agents[i, 1] = 0
+                self.agents[i, 3] *= -1
+            elif y > 600:
+                self.agents[i, 1] = 600
                 self.agents[i, 3] *= -1
