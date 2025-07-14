@@ -27,7 +27,7 @@ SIM_BOUNDS = [0, 600]
 PIXELS_PER_UNIT = 600 / (SIM_BOUNDS[1] - SIM_BOUNDS[0])
 
 #Number of Agents
-agents = 40
+agents = 50
 
 #Agent-Radius, Interaction Radius, Max-Speed
 #agent_radius = 2.5
@@ -46,11 +46,10 @@ NUM_GOALS = 3
 GOAL_RADIUS = 8  # Keep as is
 gamma_pos = [np.random.randint(100, 500, size=2) for _ in range(NUM_GOALS)]
 
-goal_found = [False] * NUM_GOALS
 
 
 #Obstacles
-NUM_OBSTACLES = 5
+NUM_OBSTACLES = 4
 OBSTACLE_MIN_RADIUS = 20
 OBSTACLE_MAX_RADIUS = 60
 
@@ -63,10 +62,10 @@ obstacles = [
 ]
 
 #Langevin Thermostat
-friction = 0.1
+friction = 0.02
 mass = 1.0
 kB = 1.0
-temp = 1.0
+temp = 10.0
 
 
 #Agent specific Cooling
@@ -197,7 +196,7 @@ agent_label = pygame_gui.elements.UILabel(
 # Agent Drawing Function
 ############################
 
-def draw_agents(surface, agent_data, gamma_pos, agents_temps, obstacles, cooling_radius_px):
+def draw_agents(surface, agent_data, gamma_pos, agent_temps, obstacles, cooling_radius_px):
     #pygame.draw.rect(window_surface, (128, 0, 128), pygame.Rect(0, 0, 600, 600))
 
     # Draw agents
@@ -205,10 +204,13 @@ def draw_agents(surface, agent_data, gamma_pos, agents_temps, obstacles, cooling
         x, y = agent[:2]
         screen_x = int(x * PIXELS_PER_UNIT)
         screen_y = int(y * PIXELS_PER_UNIT)
-        temp_norm = (temp_val - min_temp) / (temp - min_temp) if temp > min_temp else 0
+        temp_norm = (temp_val - min_temp) / (temp - min_temp) if (temp - min_temp) > 0 else 0
+        temp_norm = max(0, min(1,temp_norm))
+
         red = int(255 * temp_norm)
         blue = int(255 * (1 - temp_norm))
         color = (red, 0, blue)
+        
         pygame.draw.circle(surface, color, (screen_x, screen_y), 5)
 
     # Draw goal
@@ -295,42 +297,51 @@ while running:
     manager.update(time_delta)
     #window_surface.fill((0, 0, 0))
 
+    goal_found = [False] * NUM_GOALS
+    goal_sim_units = [np.array(g) / PIXELS_PER_UNIT for g in gamma_pos]
+
+
     if goal_found and counter == 1:
         print("Goal Found!")
         counter += 1
 
-
-    for i, goal in enumerate(gamma_pos):
+    for i, goal_sim in enumerate(goal_sim_units):
         for agent in md_sys.agents:
-            dist = np.linalg.norm(agent[:2] * PIXELS_PER_UNIT - goal)
-            if dist < GOAL_RADIUS:
+            dist = np.linalg.norm(agent[:2] * PIXELS_PER_UNIT - goal_sim)
+            if dist < GOAL_RADIUS / PIXELS_PER_UNIT:
                 goal_found[i] = True
                 break
 
 
     #Langevin Thermostat
-    goal_sim_units = [np.array(g) / PIXELS_PER_UNIT for g in gamma_pos]
     agent_c1 = []
     agent_c2 = []
     agent_temps = []
-    agents_near_goal = sum( np.linalg.norm(agent[:2] - goal_sim_units) < cooling_radius
-    for agent in md_sys.agents)
+    agents_near_goal = [0] * NUM_GOALS
+    agent_apply_gamma = []
 
     for agent in md_sys.agents:
-        dist_to_goal = np.linalg.norm(agent[:2] - goal_sim_units)
         local_temp = temp
+        apply_gamma = False
 
-        sees_goal = False
-        if goal_found:
-            if agents_near_goal < GOAL_AGENT_LIMIT:
-                sees_goal = True
-            elif dist_to_goal < cooling_radius:
-                sees_goal = True  # part of crystallizing group
+        for g_idx, goal_sim in enumerate(goal_sim_units):
+            if goal_found[g_idx]:
+                dist_to_goal = np.linalg.norm(agent[:2] - goal_sim)
+                if dist_to_goal < cooling_radius:
+                    cooling_factor = dist_to_goal / cooling_radius  # 1 (far) to 0 (near)
+                    local_temp = max(min_temp, temp * cooling_factor)
+                    agents_near_goal[g_idx] += 1
 
-        # Apply cooling effect based on distance to goal
-        if goal_found and dist_to_goal < cooling_radius:
-            cooling_factor = dist_to_goal / cooling_radius  # 1 (far) to 0 (near)
-            local_temp = max(min_temp, temp * cooling_factor)
+                    if agents_near_goal[g_idx] < GOAL_AGENT_LIMIT:
+                        apply_gamma = True
+                    break
+
+        #sees_goal = False
+        #if goal_found:
+        #    if agents_near_goal < GOAL_AGENT_LIMIT:
+        #        sees_goal = True
+        #    elif dist_to_goal < cooling_radius:
+        #        sees_goal = True  # part of crystallizing group
 
         c1 = np.exp(-friction * time_delta)
         c2 = np.sqrt((1 - c1**2) * kB * local_temp / mass)
@@ -338,8 +349,9 @@ while running:
         agent_c1.append(c1)
         agent_c2.append(c2)
         agent_temps.append(local_temp)
+        agent_apply_gamma.append(apply_gamma)
 
-    goal_force_on = goal_found and agents_near_goal < GOAL_AGENT_LIMIT
+        #goal_force_on = goal_found and agents_near_goal < GOAL_AGENT_LIMIT
     
     #Update Agents
     forces = md_sys.compute_forces(
@@ -347,9 +359,11 @@ while running:
         epsilon=epsilon,
         sigma=sigma,
         gamma_pos=gamma_pos,
-        c1_gamma=c1_gamma if goal_force_on else 0,
-        c2_gamma=c2_gamma if goal_force_on else 0,
-        obstacles=obstacles
+        c1_gamma=c1_gamma,
+        c2_gamma=c2_gamma,
+        obstacles=obstacles,
+        repulsion_strength=100.0,
+        apply_gamma=agent_apply_gamma
     )
 
     md_sys.update(forces, max_speed=max_speed, c1_lang = agent_c1, c2_lang = agent_c2, mass = mass)
