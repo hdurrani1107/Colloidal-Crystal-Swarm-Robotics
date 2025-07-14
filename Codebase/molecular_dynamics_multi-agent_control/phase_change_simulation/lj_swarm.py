@@ -38,7 +38,7 @@ class multi_agent:
             t_control = np.linalg.norm(objective)
             temp_decay = (temp - (counter * 0.1)) + 1e-3
             if temp_decay < 1: temp_decay = 1
-            print(temp_decay)
+            #print(temp_decay)
             #temp_decay = 1
 
             #LEONARD JONES POTENTIAL
@@ -59,6 +59,48 @@ class multi_agent:
             forces[i] = total_force
 
         return forces
+    
+    def update_sim(positions, velocities, middle_strength, alert_dist, flying_dist, flying_str, margin, turn_factor):
+        #Move to middle
+        middle = np.mean(positions,1)
+        middle_direction = positions - middle[:,np.newaxis]
+        
+        #Velocity Update
+        velocities -= middle_direction * middle_strength
+
+        #Separation Update
+        separations = positions[:, np.newaxis, :] - positions[:, :, np.newaxis]
+        squared_disp = separations * separations
+        square_dist = np.sum(squared_disp,  0)
+        far_away = square_dist > alert_dist
+        sep_if_close = np.copy(separations)
+        sep_if_close[0,:,:][far_away] = 0
+        sep_if_close[1,:,:][far_away] = 0
+        sep_if_close[2,:,:][far_away] = 0
+        velocities += np.sum(sep_if_close,1)
+
+        #Match Speed Update
+        vel_diff = velocities[:, np.newaxis, :] - velocities[:, :, np.newaxis]
+        very_far = square_dist > flying_dist
+        vel_diff_if_close = np.copy(vel_diff)
+        vel_diff_if_close[0,:,:][very_far] = 0
+        vel_diff_if_close[1,:,:][very_far] = 0
+        vel_diff_if_close[2,:,:][very_far] = 0
+        velocities -= np.mean(vel_diff_if_close, 1) * flying_str
+
+        #Position Update
+        positions += velocities
+
+        #Keeps the agents in bound
+        #positions = np.mod(positions, sim_limits[:, np.newaxis])
+        for axis in range(3):
+            dist_to_low = positions[axis] - 0
+            dist_to_high = sim_limits[axis] - positions[axis]
+
+            velocities[axis] += (dist_to_low < margin) * (turn_factor * (margin - dist_to_low) / margin)
+            velocities[axis] -= (dist_to_high < margin) * (turn_factor * (margin - dist_to_high) / margin)
+
+        return positions, velocities
     
     def update(self, forces, max_speed):
 
@@ -97,3 +139,7 @@ class multi_agent:
             elif y > y_max:
                 self.agents[i, 1] = y_max
                 self.agents[i, 3] *= -1
+
+##########################
+# Multi-Agent Class
+##########################
