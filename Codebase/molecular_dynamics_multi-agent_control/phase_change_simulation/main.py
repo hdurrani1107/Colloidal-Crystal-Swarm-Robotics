@@ -48,7 +48,7 @@ gamma_pos1 = [10,10]
 gamma_pos2 = [40, 40]
 
 #Temperature Control
-temp = 3
+temp = 4
 
 ##########################
 # Main Loop
