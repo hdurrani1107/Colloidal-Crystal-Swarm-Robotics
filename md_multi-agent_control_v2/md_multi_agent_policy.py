@@ -34,16 +34,27 @@ class multi_agent:
         positions = np.array(positions)
         self.agents = np.hstack([np.array(positions), np.zeros((number,2))])
     
-    def compute_forces(self, cutoff, epsilon, sigma, gamma_pos, c1_gamma, c2_gamma):
+    def compute_forces(self, cutoff, epsilon, sigma, gamma_pos, c1_gamma, c2_gamma, obstacles, repulsion_strength=100.0):
         n = len(self.agents)
         forces = np.zeros((n,2))
+        SIM_BOUNDS = [0, 600]
+        PIXELS_PER_UNIT = 600 / (SIM_BOUNDS[1] - SIM_BOUNDS[0])
         for i in range (n):
             pos_i = self.agents[i, :2]
             vel_i = self.agents[i, 2:]
             total_force = np.zeros(2)
             objective = pos_i - gamma_pos
 
-            #Temperature Control
+            #obstacle repulsion
+            for obs in obstacles:
+                obs_pos = obs["pos"] / PIXELS_PER_UNIT  # convert to sim units
+                obs_radius = obs["radius"] / PIXELS_PER_UNIT
+                offset = pos_i - obs_pos
+                dist = np.linalg.norm(offset)
+                if dist < obs_radius + 1.0:  # buffer
+                    direction = offset / (dist + 1e-6)
+                    repulse = repulsion_strength * (1.0 / (dist + 1e-6) - 1.0 / obs_radius)
+                    total_force += repulse * direction
 
 
             #LJ POTENTIAL
@@ -60,9 +71,13 @@ class multi_agent:
                     lj_scalar = 24* (epsilon) * (2 * inv_r12 - inv_r6) * inv_r
                     total_force += lj_scalar * (offset / dist) 
             
-            objective = gamma_pos - pos_i
-            u_gamma = c1_gamma * sigma_1(objective) - c2_gamma * vel_i
-            total_force += u_gamma
+            if gamma_pos:
+                # Get closest goal
+                goal_distances = [np.linalg.norm(pos_i - (g / PIXELS_PER_UNIT)) for g in gamma_pos]
+                closest_goal = gamma_pos[np.argmin(goal_distances)]
+                objective = closest_goal / PIXELS_PER_UNIT - pos_i
+                u_gamma = c1_gamma * sigma_1(objective) - c2_gamma * vel_i
+                total_force += u_gamma
 
             forces[i] = total_force
 
@@ -75,7 +90,7 @@ class multi_agent:
             f = forces[i]
 
             # Generate Gaussian noise
-            noise = np.random.normal(0, 1, size=2)
+            noise = np.random.normal(0, c2_lang[i], size=2)
 
             # Langevin velocity update
             v_new = (
