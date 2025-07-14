@@ -3,8 +3,8 @@
 #
 # GUI code for interactive control
 #
-# To Do: Add Fog of War Exploration, Add better temperature dynamics,
-# Add ability to add or remove agents, 
+# To Do: Fix Repulsive and Goal Forces, Fix Crystallization Saturation,
+# Fix Visualization for temperature change, 
 #
 # Author: Humzah Durrani
 #######################################################################
@@ -27,7 +27,7 @@ SIM_BOUNDS = [0, 600]
 PIXELS_PER_UNIT = 600 / (SIM_BOUNDS[1] - SIM_BOUNDS[0])
 
 #Number of Agents
-agents = 20
+agents = 40
 
 #Agent-Radius, Interaction Radius, Max-Speed
 #agent_radius = 2.5
@@ -80,7 +80,7 @@ counter = 1
 
 
 ############################
-# Init Agents
+# Init Agents aaaa
 ############################
 md_sys = multi_agent(agents)
 
