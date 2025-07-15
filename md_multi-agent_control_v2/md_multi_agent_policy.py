@@ -34,7 +34,7 @@ class multi_agent:
         positions = np.array(positions)
         self.agents = np.hstack([np.array(positions), np.zeros((number,2))])
     
-    def compute_forces(self, cutoff, epsilon, sigma, gamma_pos, c1_gamma, c2_gamma, obstacles, repulsion_strength, apply_gamma):
+    def compute_forces(self, cutoff, epsilon, sigma, gamma_pos, c1_gamma, c2_gamma, obstacles, repulsion_strength, apply_gamma, target_goals):
         n = len(self.agents)
         forces = np.zeros((n,2))
         SIM_BOUNDS = [0, 600]
@@ -43,7 +43,7 @@ class multi_agent:
             pos_i = self.agents[i, :2]
             vel_i = self.agents[i, 2:]
             total_force = np.zeros(2)
-            objective = pos_i - gamma_pos
+            #objective = pos_i - gamma_pos
 
             #obstacle repulsion
             for obs in obstacles:
@@ -72,18 +72,15 @@ class multi_agent:
                     lj_scalar = 24* (epsilon) * (2 * inv_r12 - inv_r6) * inv_r
                     total_force += lj_scalar * (offset / dist) 
             
-            if gamma_pos and apply_gamma[i]:
+            if apply_gamma[i] and target_goals[i] is not None:
                 # Get closest goal
                 #goal_distances = [np.linalg.norm(pos_i - (g / PIXELS_PER_UNIT)) for g in gamma_pos]
-                found_goals = [(g /PIXELS_PER_UNIT, np.linalg.norm(pos_i - (g / PIXELS_PER_UNIT)))
-                                for g in enumerate(gamma_pos) if apply_gamma[i]               
-                ]
-
-                if found_goals:
-                    closest_goal, _ = min(found_goals, key = lambda tup: tup[1])
-                    objective = closest_goal - pos_i
-                    u_gamma = c1_gamma * sigma_1(objective) - c2_gamma * vel_i
-                    total_force += u_gamma
+                #found_goals = [ g / PIXELS_PER_UNIT  for g in gamma_pos]
+                #closest_goal, _ = min(found_goals, key = lambda g: np.linalg.norm(pos_i - g))
+                goal_pos = target_goals[i]
+                objective = goal_pos - pos_i
+                u_gamma = c1_gamma * sigma_1(objective) - c2_gamma * vel_i
+                total_force += u_gamma
 
             forces[i] = total_force
 
@@ -128,4 +125,4 @@ class multi_agent:
                 self.agents[i, 3] *= -1
             elif y > 600:
                 self.agents[i, 1] = 600
-                self.agents[i, 3] *= -1
+                self.agents[i, 3] *= -1 
