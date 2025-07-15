@@ -93,7 +93,7 @@ class multi_agent:
             f = forces[i]
 
             # Generate Gaussian noise
-            noise = np.random.normal(0, c2_lang[i], size=2)
+            noise = 20 * np.random.normal(0, c2_lang[i], size=2)
 
             # Langevin velocity update
             v_new = (
@@ -116,13 +116,13 @@ class multi_agent:
             if x < 0:
                 self.agents[i, 0] = 0
                 self.agents[i, 2] *= -1
-            elif x > 600:
-                self.agents[i, 0] = 600
+            elif x > 700:
+                self.agents[i, 0] = 700
                 self.agents[i, 2] *= -1
 
             if y < 0:
                 self.agents[i, 1] = 0
                 self.agents[i, 3] *= -1
-            elif y > 600:
-                self.agents[i, 1] = 600
+            elif y > 700:
+                self.agents[i, 1] = 700
                 self.agents[i, 3] *= -1 

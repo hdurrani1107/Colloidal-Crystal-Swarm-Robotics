@@ -19,15 +19,15 @@ import pygame_gui
 import numpy as np
 from md_multi_agent_policy import multi_agent
 
-
+ 
 ############################
 # Starting Params
 ############################
-SIM_BOUNDS = [0, 600]
-PIXELS_PER_UNIT = 600 / (SIM_BOUNDS[1] - SIM_BOUNDS[0])
+SIM_BOUNDS = [0, 700]
+PIXELS_PER_UNIT = 700 / (SIM_BOUNDS[1] - SIM_BOUNDS[0])
 
 #Number of Agents
-agents = 20
+agents = 50
 
 #Agent-Radius, Interaction Radius, Max-Speed
 #agent_radius = 2.5
@@ -35,8 +35,8 @@ agents = 20
 max_speed = 10
 
 #Lennard-Jones Interaction Coefficients
-epsilon = 7
-sigma = 7
+sigma = 30
+epsilon = sigma
 cutoff = 3 * sigma
 optimal_range = (0.9 * sigma, 1.1 * sigma)
 #Gamma Control
@@ -79,7 +79,7 @@ GOAL_AGENT_LIMIT = 5  # Max agents allowed within cooling radius of the goal
 counter = 1
 
 ############################
-# Init Agents aaaa
+# Init Agents
 ############################
 md_sys = multi_agent(agents)
 
@@ -105,82 +105,50 @@ window_surface = pygame.display.set_mode(window_size)
 manager = pygame_gui.UIManager(window_size)
 
 #Lennard Jones Coeffs
-lj_title = pygame_gui.elements.UILabel(relative_rect=pygame.Rect(((625, 135),(250, 25))),
-                                         text= "Lennard Jones Coefficients:", manager=manager)
+lj_title = pygame_gui.elements.UILabel(relative_rect=pygame.Rect(((725, 50),(150, 25))),
+                                         text= "Agent Controls:", manager=manager)
 
-#Epsilon Slider
-epsilon_slider = pygame_gui.elements.UIHorizontalSlider(
-    relative_rect=pygame.Rect((625, 180), (250, 25)),
-    start_value= epsilon,  # initial value
-    value_range=(1.0, 50.0),  # min to max
-    manager=manager
-)
-
-#Epsilon Label
-epsilon_label = pygame_gui.elements.UILabel(
-    relative_rect=pygame.Rect((625, 160), (250, 25)),
-    text='Epsilon Value: 10',
-    manager=manager
-)
-
-#Sigma Slider
-sigma_slider = pygame_gui.elements.UIHorizontalSlider(
-    relative_rect=pygame.Rect((625, 220), (250, 25)),
+#Distance Slider
+distance_slider = pygame_gui.elements.UIHorizontalSlider(
+    relative_rect=pygame.Rect((725, 100), (150, 25)),
     start_value= sigma,  # initial value
     value_range=(1.0, 50.0),  # min to max
     manager=manager
 )
 
-#Sigma Label
-sigma_label = pygame_gui.elements.UILabel(
-    relative_rect=pygame.Rect((625, 200), (250, 25)),
-    text='Sigma Value: 2.5',
+#Distance Label
+distance_label = pygame_gui.elements.UILabel(
+    relative_rect=pygame.Rect((725, 75), (150, 25)),
+    text='Distance Value: 30',
     manager=manager
 )
 
-#Gamma Coeff
-gamma_title = pygame_gui.elements.UILabel(relative_rect=pygame.Rect(((625, 255),(250, 25))),
-                                         text= "Global Goal:", manager=manager)
-
-#Gamma Slider
-gamma_slider = pygame_gui.elements.UIHorizontalSlider(
-    relative_rect=pygame.Rect((625, 300), (250, 25)),
-    start_value= 25,  # initial value
-    value_range=(1.0, 50.0),  # min to max
+#Temp Slider
+temp_slider = pygame_gui.elements.UIHorizontalSlider(
+    relative_rect=pygame.Rect((725, 150), (150, 25)),
+    start_value= temp,  # initial value
+    value_range=(1.0, 100.0),  # min to max
     manager=manager
 )
 
-#Gamma Label
-gamma_label = pygame_gui.elements.UILabel(
-    relative_rect=pygame.Rect((625, 280), (250, 25)),
-    text='Gamma Value: 25',
+#Temp Label
+temp_label = pygame_gui.elements.UILabel(
+    relative_rect=pygame.Rect((725, 125), (150, 25)),
+    text='Temp Value: 30',
     manager=manager
 )
 
-#Gamma Slider
-agent_slider = pygame_gui.elements.UIHorizontalSlider(
-    relative_rect=pygame.Rect((625, 360), (250, 25)),
-    start_value= 20,  # initial value
-    value_range=(20, 100),  # min to max
-    manager=manager
-)
-
-#Agent Label
-agent_label = pygame_gui.elements.UILabel(
-    relative_rect=pygame.Rect((625, 335), (250, 25)),
-    text='Agents Value: 20',
-    manager=manager
-)
 
 ############################
 # Agent Drawing Function
 ############################
 
-def draw_agents(surface, agent_data, gamma_pos, agent_temps, obstacles, cooling_radius_px):
+def draw_agents(surface, agent_data, gamma_pos, agent_temps, obstacles, cooling_radius_px, forces):
 
     # Draw agents
-    for agent, temp_val in zip(agent_data, agent_temps):
+    for i, (agent, temp_val) in enumerate(zip(agent_data, agent_temps)):
         x, y = agent[:2]
+        vx,vy = agent[2:]
         screen_x = int(x * PIXELS_PER_UNIT)
         screen_y = int(y * PIXELS_PER_UNIT)
         temp_norm = (temp_val - min_temp) / (temp - min_temp) if (temp - min_temp) > 0 else 0
@@ -191,6 +159,18 @@ def draw_agents(surface, agent_data, gamma_pos, agent_temps, obstacles, cooling_
         color = (red, 0, blue)
         
         pygame.draw.circle(surface, color, (screen_x, screen_y), 5)
+
+        velocity = np.array([vx, vy])
+        speed = np.linalg.norm(velocity)
+        force_vec = forces[i]
+        force_mag = np.linalg.norm(force_vec)
+        if speed > 1e-2:
+            direction = velocity / speed
+            arrow_length = min(25, force_mag * 2)
+            end_x = int(screen_x + arrow_length * direction[0])
+            end_y = int(screen_y + arrow_length * direction[1])
+            pygame.draw.line(surface, (0,0,0), (screen_x, screen_y), (end_x, end_y), 2)
+
 
     # Draw goal
     for goal in gamma_pos:
@@ -224,32 +204,20 @@ while running:
 
         if event.type == pygame_gui.UI_HORIZONTAL_SLIDER_MOVED:
 
-            if event.ui_element == epsilon_slider:
-                raw_val = epsilon_slider.get_current_value()
-                epsilon_update = round(raw_val, 1) 
-                if epsilon != epsilon_update:
-                    epsilon = epsilon_update
-                    epsilon_label.set_text(f"Epsilon Value: {epsilon_update}")
+            if event.ui_element == distance_slider:
+                raw_val = distance_slider.get_current_value()
+                distance_update = round(raw_val, 1) 
+                if sigma != distance_update:
+                    sigma = distance_update
+                    distance_label.set_text(f"Distance Value : {distance_update}")
+            
+            if event.ui_element == temp_slider:
+                raw_val = temp_slider.get_current_value()
+                temp_update = round(raw_val, 1) 
+                if temp != temp_update:
+                    temp = temp_update
+                    temp_label.set_text(f"Temp Value: {temp_update}")
 
-            if event.ui_element == sigma_slider:
-                raw_val = sigma_slider.get_current_value()
-                sigma_update = round(raw_val, 1)
-                if sigma != sigma_update:
-                    sigma = sigma_update
-                    sigma_label.set_text(f"Sigma Value: {sigma_update}")
-
-            if event.ui_element == gamma_slider:
-                raw_val = gamma_slider.get_current_value()
-                gamma_update = round(raw_val, 1)
-                if c1_gamma != gamma_update:
-                    c1_gamma = gamma_update
-                    gamma_label.set_text(f"GammA Value: {gamma_update}")
-
-            if event.ui_element == agent_slider:
-                agent_update = agent_slider.get_current_value()
-                if agents != agent_update:
-                    agents = agent_update
-                    agent_label.set_text(f"Agent Value: {agent_update}")
 
     manager.update(time_delta)
 
@@ -292,20 +260,27 @@ while running:
         min_dist = float("inf")
 
         for g_idx, goal_sim in enumerate(goal_sim_units):
-            if discovered_goals[g_idx] and active_goals[g_idx]:
+            if discovered_goals[g_idx]:
                 dist = np.linalg.norm(pos - goal_sim)
-                if dist < min_dist:
-                    min_dist = dist
-                    target_goal = goal_sim
+
+                if active_goals[g_idx]:
+                    if dist < min_dist:
+                        min_dist = dist
+                        target_goal = goal_sim
+                        apply_gamma = True
+                
+                elif not active_goals[g_idx] and dist < cooling_radius:
+                    if dist < min_dist:
+                        min_dist = dist
+                        target_goal = goal_sim
+                        apply_gamma = True
+
 
         if target_goal is not None:
             dist_to_goal = np.linalg.norm(pos - target_goal)
             if dist_to_goal < cooling_radius:
                 cooling_factor = dist_to_goal / cooling_radius
                 local_temp = max(min_temp, temp * cooling_factor)
-                
-            if dist_to_goal < 2 * cooling_radius or active_goals[g_idx]:
-                apply_gamma = True
         
         c1 = np.exp(-friction * time_delta)
         c2 = np.sqrt((1 - c1**2) * kB * local_temp / mass)
@@ -353,9 +328,9 @@ while running:
                     discovery_grid[nx, ny] = True
 
     # Draw agents and goal on the main surface
-    draw_agents(window_surface, md_sys.agents, gamma_pos, agent_temps, obstacles, cooling_radius_px)
-    pygame.draw.rect(window_surface, (30, 30, 30), pygame.Rect(600, 0, 300, 700))
-    pygame.draw.rect(window_surface, (30, 30, 30), pygame.Rect(0 , 600, 700, 300))
+    draw_agents(window_surface, md_sys.agents, gamma_pos, agent_temps, obstacles, cooling_radius_px,forces)
+    pygame.draw.rect(window_surface, (30, 30, 30), pygame.Rect(700, 0, 300, 700))
+    pygame.draw.rect(window_surface, (30, 30, 30), pygame.Rect(0 , 700, 700, 300))
     manager.draw_ui(window_surface)
     pygame.display.update()
 
