@@ -313,9 +313,9 @@ while running:
             state["sigma"] = min(state["sigma"] * sigma_growth, max_sigma)
         
         #Cool down if not
-        else:
-            state["temp"] = max(state["temp"] * 0.95, min_temp)
-            state["sigma"] = min([state["sigma"] * sigma_decay, min_sigma])
+        #else:
+            #state["temp"] = max(state["temp"] * 0.95, min_temp)
+            #state["sigma"] = min([state["sigma"] * sigma_decay, min_sigma])
 
     #Langevin Thermostat
     agent_c1 = []
