@@ -138,6 +138,20 @@ temp_label = pygame_gui.elements.UILabel(
     manager=manager
 )
 
+#Percentage Explored Label
+explored_label = pygame_gui.elements.UILabel(
+    relative_rect=pygame.Rect((725, 175),(150, 25)),
+    text="Explored: 0.0%",
+    manager = manager)
+
+
+#Average Temperature Label
+avg_temp_label = pygame_gui.elements.UILabel(
+    relative_rect=pygame.Rect((725, 200),(150, 25)),
+    text="Avg Temp: 0.00",
+    manager = manager)
+
+
 
 ############################
 # Agent Drawing Function
@@ -326,6 +340,15 @@ while running:
                 ny = gy + dy
                 if 0 <= nx < GRID_WIDTH and 0 <= ny < GRID_HEIGHT:
                     discovery_grid[nx, ny] = True
+
+    #Metrics
+    avg_temp = round(np.mean(agent_temps), 2)
+    
+    explored_fraction = np.sum(discovery_grid) / discovery_grid.size
+    explored_percent = round (100 * explored_fraction, 1)
+
+    explored_label.set_text(f"Explored: {explored_percent}%")
+    avg_temp_label.set_text(f"Avg Temp: {avg_temp}")
 
     # Draw agents and goal on the main surface
     draw_agents(window_surface, md_sys.agents, gamma_pos, agent_temps, obstacles, cooling_radius_px,forces)
