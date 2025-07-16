@@ -259,16 +259,84 @@ while running:
         if discovered_goals[g_idx] and agents_near_goal[g_idx] >= GOAL_AGENT_LIMIT:
             active_goals[g_idx] = False
 
+    ########################
+    # Autonomous Part
+    ########################
+    max_temp = 100
+    min_temp = 1
+    base_sigma = 30
+    max_sigma = 50
+    min_sigma = 10
+    sigma_decay = 0.5
+    sigma_growth = 1.5
+    stuck_velocity = 0.5
+    stuck_limit_frames = 10
+
+    for i, agent in enumerate(md_sys.agents):
+        pos = agent[:2]
+        vel = agent[2:]
+        speed = np.linalg.norm(vel)
+        state = md_sys.agent_states[i]
+
+        if state["crystallized"]:
+            continue
+
+        #Check near discovered or active goal
+        near_goal = False
+        for g_idx, goal_sim in enumerate(goal_sim_units):
+            dist_to_goal = np.linalg.norm(pos - goal_sim)
+            if discovered_goals[g_idx]:
+                if active_goals[g_idx] and dist_to_goal < cooling_radius:
+                    near_goal = True
+                    break
+                if not active_goals[g_idx] and dist_to_goal < cooling_radius:
+                    near_goal = True
+                    break
+
+        #Goal Crystallization Proximity Trigger
+        if near_goal:
+            state["temp"] = max(state["temp"] * 0.95, min_temp)
+            state["sigma"] = max(state["sigma"] * sigma_decay, min_sigma)
+            if dist_to_goal < (GOAL_RADIUS / PIXELS_PER_UNIT):
+                state["crystallized"] = True
+            continue
+
+        #Exploration Mode
+        if speed < stuck_velocity:
+            state["stuck_counter"] += 1
+        else:
+            state["stuck_counter"] = 0
+
+        #Agent stuck, heat up and spread out
+        if state["stuck_counter"] > stuck_limit_frames:
+            state["temp"] = min(state["temp"] + 2.0, max_temp)
+            state["sigma"] = min(state["sigma"] * sigma_growth, max_sigma)
+        
+        #Cool down if not
+        else:
+            state["temp"] = max(state["temp"] * 0.95, min_temp)
+            state["sigma"] = min([state["sigma"] * sigma_decay, min_sigma])
+
     #Langevin Thermostat
     agent_c1 = []
     agent_c2 = []
     agent_temps = []
+    agent_sigmas = []
     agent_apply_gamma = []
     agent_target_goal = []
 
     for agent in md_sys.agents:
         pos = agent[:2]
-        local_temp = temp
+        vel = agent[2:]
+
+        #Automation
+        state = md_sys.agent_states[i]
+        sigma_i = state["sigma"]
+        local_temp = state["temp"]
+        
+        agent_temps.append(local_temp)
+        agent_sigmas.append(sigma_i)
+        
         apply_gamma = False
         target_goal = None
         min_dist = float("inf")
@@ -294,10 +362,13 @@ while running:
             dist_to_goal = np.linalg.norm(pos - target_goal)
             if dist_to_goal < cooling_radius:
                 cooling_factor = dist_to_goal / cooling_radius
-                local_temp = max(min_temp, temp * cooling_factor)
+                local_temp = max(min_temp, state["temp"] * cooling_factor)
+        
+        state["temp"] = local_temp
         
         c1 = np.exp(-friction * time_delta)
         c2 = np.sqrt((1 - c1**2) * kB * local_temp / mass)
+        c3 = np.sqrt(2*friction*kB*local_temp*time_delta/mass)
 
         agent_c1.append(c1)
         agent_c2.append(c2)
@@ -309,17 +380,18 @@ while running:
     forces = md_sys.compute_forces(
         cutoff=cutoff,
         epsilon=epsilon,
-        sigma=sigma,
+        sigma=0,
         gamma_pos=gamma_pos,
         c1_gamma=c1_gamma,
         c2_gamma=c2_gamma,
         obstacles=obstacles,
         repulsion_strength=100.0,
         apply_gamma=agent_apply_gamma,
-        target_goals=agent_target_goal
+        target_goals=agent_target_goal,
+        agent_sigmas=agent_sigmas
     )
 
-    md_sys.update(forces, max_speed=max_speed, c1_lang = agent_c1, c2_lang = agent_c2, mass = mass)
+    md_sys.update(forces, max_speed=max_speed, c1_lang = agent_c1, c2_lang = agent_c2, mass = mass, c3_lang=c3)
 
     # Clear and draw on main window surface
     for x in range(GRID_WIDTH):

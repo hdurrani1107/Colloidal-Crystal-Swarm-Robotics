@@ -33,8 +33,15 @@ class multi_agent:
             positions.append(candidate)
         positions = np.array(positions)
         self.agents = np.hstack([np.array(positions), np.zeros((number,2))])
+        self.agent_states = [{
+            "temp": 10.0,
+            "sigma": 30.0,
+            "crystallized": False,
+            "stuck_counter": 0,
+            "last_pos": np.zeros(2)
+            } for _ in range(number)]
     
-    def compute_forces(self, cutoff, epsilon, sigma, gamma_pos, c1_gamma, c2_gamma, obstacles, repulsion_strength, apply_gamma, target_goals):
+    def compute_forces(self, cutoff, epsilon, sigma, gamma_pos, c1_gamma, c2_gamma, obstacles, repulsion_strength, apply_gamma, target_goals, agent_sigmas):
         n = len(self.agents)
         forces = np.zeros((n,2))
         SIM_BOUNDS = [0, 600]
@@ -42,6 +49,7 @@ class multi_agent:
         for i in range (n):
             pos_i = self.agents[i, :2]
             vel_i = self.agents[i, 2:]
+            sigma_i = agent_sigmas[i]
             total_force = np.zeros(2)
             #objective = pos_i - gamma_pos
 
@@ -67,16 +75,13 @@ class multi_agent:
                 dist = np.linalg.norm(offset)
                 if dist < cutoff and dist > 1e-3:
                     inv_r = 1.0/dist
-                    inv_r6 = (sigma * inv_r) ** 6
+                    inv_r6 = (sigma_i * inv_r) ** 6
                     inv_r12 = inv_r6 ** 2
-                    lj_scalar = 24* (epsilon) * (2 * inv_r12 - inv_r6) * inv_r
+                    lj_scalar = 24* (sigma_i) * (2 * inv_r12 - inv_r6) * inv_r
                     total_force += lj_scalar * (offset / dist) 
             
             if apply_gamma[i] and target_goals[i] is not None:
                 # Get closest goal
-                #goal_distances = [np.linalg.norm(pos_i - (g / PIXELS_PER_UNIT)) for g in gamma_pos]
-                #found_goals = [ g / PIXELS_PER_UNIT  for g in gamma_pos]
-                #closest_goal, _ = min(found_goals, key = lambda g: np.linalg.norm(pos_i - g))
                 goal_pos = target_goals[i]
                 objective = goal_pos - pos_i
                 u_gamma = c1_gamma * sigma_1(objective) - c2_gamma * vel_i
@@ -86,14 +91,14 @@ class multi_agent:
 
         return forces
     
-    def update(self, forces, max_speed, c1_lang, c2_lang, mass):
+    def update(self, forces, max_speed, c1_lang, c2_lang, mass, c3_lang):
 
         for i in range(len(self.agents)):
             v = self.agents[i, 2:]
             f = forces[i]
 
             # Generate Gaussian noise
-            noise = 20 * np.random.normal(0, c2_lang[i], size=2)
+            noise = c3_lang * np.random.normal(0,1, size=2)
 
             # Langevin velocity update
             v_new = (
