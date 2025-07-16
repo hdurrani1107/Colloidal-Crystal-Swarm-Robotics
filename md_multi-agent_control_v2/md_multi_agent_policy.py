@@ -98,7 +98,7 @@ class multi_agent:
             f = forces[i]
 
             # Generate Gaussian noise
-            noise = c3_lang * np.random.normal(0,1, size=2)
+            noise = np.random.normal(0,1, size=2)
 
             # Langevin velocity update
             v_new = (
